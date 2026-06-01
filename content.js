@@ -1,20 +1,8 @@
-const badge = document.createElement('div');
+import {
+    showActiveBadge
+} from './activeTab';
 
-badge.textContent = 'QA EXT ACTIVE';
-
-Object.assign(badge.style, {
-  position: 'fixed',
-  bottom: '12px',
-  right: '12px',
-  background: '#28a745',
-  color: 'white',
-  padding: '8px 12px',
-  borderRadius: '8px',
-  zIndex: '999999',
-  fontSize: '12px'
-});
-
-document.body.appendChild(badge);
+showActiveBadge();
 
 let barcodeBuffer = '';
 let lastKeyTime = Date.now();
@@ -33,8 +21,8 @@ window.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
         if (barcodeBuffer.length >= 3) {
             processScannedBarcode(barcodeBuffer);
-            barcodeBuffer = ''; 
-            event.preventDefault(); 
+            barcodeBuffer = '';
+            event.preventDefault();
         }
     } else if (event.key.length === 1) {
         barcodeBuffer += event.key;
@@ -45,9 +33,11 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('keydown', (event) => {
     if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 's') {
         event.preventDefault();
-        
+
         // Generate a random warehouse style barcode
         const mockBarcode = "QA-MOCK-" + Math.floor(100000 + Math.random() * 900000);
+
+        // Simulate hardware typing speed (4ms per character)
         let index = 0;
         function fireKey() {
             if (index < mockBarcode.length) {
@@ -58,28 +48,82 @@ window.addEventListener('keydown', (event) => {
                 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
             }
         }
+        processScannedBarcode(mockBarcode);
         fireKey();
     }
 });
 
 // 3. INTERCEPT AND CHOOSE WHAT TO DO WITH THE DATA
-function processScannedBarcode(scannedCode) {
-    // Show a blue confirmation banner on the screen
-    const banner = document.createElement('div');
-    banner.innerText = `📦 Intercepted Barcode: ${scannedCode}`;
-    Object.assign(banner.style, {
-        position: 'fixed', top: '20px', right: '20px',
-        backgroundColor: '#007BFF', color: 'white',
-        padding: '16px 24px', borderRadius: '8px',
-        fontSize: '16px', fontWeight: 'bold', zIndex: '10000',
-        boxShadow: '0px 4px 12px rgba(0,0,0,0.2)'
-    });
-    document.body.appendChild(banner);
-    setTimeout(() => banner.remove(), 3000);
+async function processScannedBarcode(
+    scannedCode
+) {
 
-    // Automatically fill the first text input box found on the webpage
-    const anyInputField = document.querySelector('input[type="text"]') || document.querySelector('input');
+    // VISUAL TESTING EFFECT
+    const banner =
+        document.createElement('div');
+
+    banner.innerText =
+        `📦 Intercepted Barcode: ${scannedCode}`;
+
+    Object.assign(
+        banner.style,
+        {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#007BFF',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            zIndex: '10000',
+            boxShadow:
+                '0px 4px 12px rgba(0,0,0,0.2)'
+        }
+    );
+
+    document.body.appendChild(
+        banner
+    );
+
+    setTimeout(
+        () => banner.remove(),
+        3000
+    );
+
+    // AUTO INPUT FILL
+    const anyInputField =
+        document.querySelector(
+            'input[type="text"]'
+        ) ||
+        document.querySelector(
+            'input'
+        );
+
     if (anyInputField) {
-        anyInputField.value = scannedCode;
+        anyInputField.value =
+            scannedCode;
+    }
+
+    // DATABASE SAVE
+    try {
+
+        await saveBarcode(
+            scannedCode,
+            'EMP001'
+        );
+
+        console.log(
+            'Barcode saved'
+        );
+
+    } catch (err) {
+
+        console.error(
+            'Save failed:',
+            err
+        );
+
     }
 }

@@ -1,0 +1,27 @@
+{
+  "name": "qa-barcode-listener",
+  "version": "1.0.0",
+  "description": "This project is designed for those who need online tailored Map Service",
+  "main": "activeTab.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite build --watch",
+    "ext": "web-ext run --target=chromium --source-dir=."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beijijizhou/QA-barcode-listener.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/beijijizhou/QA-barcode-listener/issues"
+  },
+  "homepage": "https://github.com/beijijizhou/QA-barcode-listener#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "vite": "^8.0.16",
+    "vite-plugin-reload": "^0.1.2"
+  }
+}
