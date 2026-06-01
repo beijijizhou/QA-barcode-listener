@@ -1,4 +1,20 @@
-alert("EXTENSION INJECTED");
+const badge = document.createElement('div');
+
+badge.textContent = 'QA EXT ACTIVE';
+
+Object.assign(badge.style, {
+  position: 'fixed',
+  bottom: '12px',
+  right: '12px',
+  background: '#28a745',
+  color: 'white',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  zIndex: '999999',
+  fontSize: '12px'
+});
+
+document.body.appendChild(badge);
 
 let barcodeBuffer = '';
 let lastKeyTime = Date.now();
@@ -32,8 +48,6 @@ window.addEventListener('keydown', (event) => {
         
         // Generate a random warehouse style barcode
         const mockBarcode = "QA-MOCK-" + Math.floor(100000 + Math.random() * 900000);
-        
-        // Simulate hardware typing speed (4ms per character)
         let index = 0;
         function fireKey() {
             if (index < mockBarcode.length) {
