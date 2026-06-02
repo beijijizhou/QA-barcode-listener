@@ -12,6 +12,6 @@ export async function saveBarcode(code, user) {
                     scanned_by: user
                 }
             ]);
-
+    console.log(`Saved barcode: ${code} by user: ${user}`);
     if (error) throw error;
 }

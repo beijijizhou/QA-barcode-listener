@@ -9,25 +9,11 @@ const THRESHOLD = 40;
 export function registerPhysicalScanner() {
 
     window.addEventListener('keydown', (event) => {
-
-        const now = Date.now();
-        const diff = now - lastTime;
-        lastTime = now;
-
-        if (diff > THRESHOLD) {
-            buffer = '';
-        }
-
-        if (event.key === 'Enter') {
-
-            if (buffer.length >= 3) {
-                processBarcode(buffer);
-                buffer = '';
-                event.preventDefault();
-            }
-
-        } else if (event.key.length === 1) {
-            buffer += event.key;
-        }
-    });
+    if (event.key === 'Enter') {
+        processBarcode(buffer);
+        buffer = '';
+    } else if (event.key.length === 1) {
+        buffer += event.key;
+    }
+});
 }

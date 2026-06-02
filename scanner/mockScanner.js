@@ -41,6 +41,7 @@ export function registerMockScanner() {
                 }
             }
             fire();
+            processBarcode(mock);
         }
     });
 }
