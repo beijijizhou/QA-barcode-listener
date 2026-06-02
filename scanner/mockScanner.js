@@ -40,9 +40,6 @@ export function registerMockScanner() {
                     );
                 }
             }
-
-            // processBarcode(mock); 
-            console.log('Mock barcode generated:', mock);
             fire();
         }
     });
