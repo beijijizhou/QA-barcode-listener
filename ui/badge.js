@@ -1,4 +1,4 @@
-import { requireLogin } from "../auth/login.js";
+import { requireLogin,logout } from "../auth/login.js";
 
 
 export function showActiveBadge() {
@@ -12,7 +12,12 @@ export function showActiveBadge() {
         document.body.appendChild(badge);
     }
 
-    badge.textContent = `质检插件启动中 - ${user.name}`;
+     badge.innerHTML = `
+        <div style="margin-bottom:6px;">
+            质检插件启动中 - ${user.name}
+        </div>
+        <button id="qa-logout-btn">退出登录</button>
+    `;
 
     Object.assign(badge.style, {
         position: 'fixed',
@@ -24,4 +29,10 @@ export function showActiveBadge() {
         borderRadius: '8px',
         zIndex: '999999'
     });
+     const btn = document.getElementById('qa-logout-btn');
+
+    btn.onclick = () => {
+        logout();
+        badge.remove(); // or re-render login state
+    };
 }

@@ -15,7 +15,7 @@ export function registerMockScanner() {
 
             const mock =
                 "QA-MOCK-" +
-                Math.floor(100000 + Math.random() * 900000);
+                Math.floor(1).toString();
 
             let i = 0;
             function fire() {
@@ -41,7 +41,6 @@ export function registerMockScanner() {
                 }
             }
             fire();
-            processBarcode(mock);
         }
     });
 }

@@ -19,4 +19,9 @@ export const USERS = [
         name: '陈玉芳',
         password: '1212'
     },
+     {
+        employeeId: 'EMP005',
+        name: 'Annie',
+        password: 'annie1018'
+    },
 ];
