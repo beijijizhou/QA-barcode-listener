@@ -18,7 +18,6 @@ export function registerMockScanner() {
                 Math.floor(100000 + Math.random() * 900000);
 
             let i = 0;
-
             function fire() {
 
                 if (i < mock.length) {
@@ -42,7 +41,8 @@ export function registerMockScanner() {
                 }
             }
 
-            processBarcode(mock); // optional early trigger
+            // processBarcode(mock); 
+            console.log('Mock barcode generated:', mock);
             fire();
         }
     });
