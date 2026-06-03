@@ -15,7 +15,7 @@ export function registerMockScanner() {
 
             const mock =
                 "QA-MOCK-" +
-                Math.floor(1).toString();
+                Math.floor(100000 + Math.random() * 900000).toString();
 
             let i = 0;
             function fire() {

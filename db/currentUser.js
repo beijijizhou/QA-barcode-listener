@@ -1,9 +1,8 @@
 import { USERS } from '../data/users.js';
 
-let currentUser = USERS[0]; // 吴雪珍 by default
 
 export function getCurrentUser() {
-    return currentUser;
+    return localStorage.getItem('currentUser');
 }
 
 export function setCurrentUser(employeeId) {

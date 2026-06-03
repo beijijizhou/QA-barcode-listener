@@ -1,9 +1,11 @@
 import { requireLogin,logout } from "../auth/login.js";
 
 
-export function showActiveBadge() {
+
+export function showActiveBadge(count = 0) {
     const user = requireLogin();
-    if (!user) return; // should not happen, but just in case
+    if (!user) return;
+
     let badge = document.getElementById('qa-active-badge');
 
     if (!badge) {
@@ -12,9 +14,12 @@ export function showActiveBadge() {
         document.body.appendChild(badge);
     }
 
-     badge.innerHTML = `
+    badge.innerHTML = `
         <div style="margin-bottom:6px;">
             质检插件启动中 - ${user.name}
+        </div>
+        <div style="margin-bottom:6px;">
+            今日扫描: ${count}
         </div>
         <button id="qa-logout-btn">退出登录</button>
     `;
@@ -29,10 +34,11 @@ export function showActiveBadge() {
         borderRadius: '8px',
         zIndex: '999999'
     });
-     const btn = document.getElementById('qa-logout-btn');
+
+    const btn = document.getElementById('qa-logout-btn');
 
     btn.onclick = () => {
         logout();
-        badge.remove(); // or re-render login state
+        badge.remove();
     };
 }

@@ -9,8 +9,6 @@ import { getCurrentUser } from '../db/currentUser.js';
 export async function processBarcode(code) {
 
     showBanner(code);
-    const user =
-    getCurrentUser();
     const input =
         document.querySelector('input[type="text"]') ||
         document.querySelector('input');
@@ -21,9 +19,7 @@ export async function processBarcode(code) {
 
     try {
 
-        await saveBarcode(code,  user.name);
-        console.log(user.name)
-        console.log('Barcode saved');
+        await saveBarcode(code);
 
     } catch (err) {
 

@@ -1,12 +1,12 @@
 
 import { USERS } from "../data/users";
 export function requireLogin() {
-    let user =     {
-        employeeId: 'EMP003',
-        name: '1',
-        password: '1'
-    };
-    // let user = getCurrentUser() 
+    // let user =     {
+    //     employeeId: 'EMP003',
+    //     name: '1',
+    //     password: '1'
+    // };
+    let user = getCurrentUser() 
     if (!user) {
         const name = prompt('请输入用户名');
         const password = prompt('请输入密码');
@@ -27,6 +27,7 @@ export function requireLogin() {
 export function getCurrentUser() {
     const userStr = localStorage.getItem('currentUser');
     if (!userStr) return null;
+    console.log('Retrieved user from localStorage:', userStr);
     try {
         return JSON.parse(userStr);
     } catch (e) {
