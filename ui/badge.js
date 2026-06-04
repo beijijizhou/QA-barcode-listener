@@ -32,15 +32,15 @@ export async function showActiveBadge() {
                 登录
             </button>
         `;
-
+        
         badge
             .querySelector('#qa-login-btn')
-            .onclick = () => {
+            .onclick = async () => {
                 const user =
-                    requireLogin();
-
+                    await requireLogin();
+                
                 if (user) {
-                    showActiveBadge();
+                    await showActiveBadge();
                 }
             };
 

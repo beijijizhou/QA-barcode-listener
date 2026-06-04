@@ -14,7 +14,11 @@
         "https://www.pixelin.cc/*",
         "http://us.qcpod.19diy.com/*",
         "https://factory.s2bdiy.com/*",
-        "https://aipod.himytool.com/*"
+        "https://aipod.himytool.com/*",
+        "https://example.com/*",
+        "https://fangguo.com/*",
+        "https://*.hihumbird.com/*",
+        "http://usf.19diy.com/*"
       ],
       "js": [
         "dist/content.js"

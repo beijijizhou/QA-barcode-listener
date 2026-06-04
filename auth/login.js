@@ -1,17 +1,24 @@
 
-import { USERS } from "../data/users";
-export function requireLogin() {
+import { USERS } from "../data/users.js";
+// import  {findUser}  from "../db/userRepo.js";
+import { findUser } from "../db/userRepo.js";
+export async function requireLogin() {
     // let user =     {
     //     employeeId: 'EMP003',
     //     name: '1',
     //     password: '1'
     // };
+    //const user = await findUser();
+
     let user = getCurrentUser() 
+    
     if (!user) {
         const name = prompt('请输入用户名');
         const password = prompt('请输入密码');
         user = { name, password };
     }
+    const testuser = await findUser(user.name, user.password);
+    console.log('User found in database:', testuser);
     const found = USERS.find(
         u => u.name === user.name && u.password === user.password
     );
