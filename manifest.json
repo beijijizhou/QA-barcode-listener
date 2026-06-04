@@ -5,13 +5,20 @@
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://manage.sdspod.com/*",
+        "https://haloopod.merchant.hihumbird.com/*",
+        "https://sbkj.merchant.hihumbird.com/*",
+        "https://putiandiy.merchant.hihumbird.com/*",
+        "https://aasy.lewhqh.cn/*",
+        "https://cps.robotees.us/*",
+        "https://www.pixelin.cc/*",
+        "http://us.qcpod.19diy.com/*",
+        "https://factory.s2bdiy.com/*",
+        "https://aipod.himytool.com/*"
       ],
       "js": [
         "dist/content.js"
-      ],
-      "build": "vite build",
-      "watch": "vite build --watch"
+      ]
     }
   ]
 }
