@@ -17,11 +17,9 @@ export async function requireLogin() {
         const password = prompt('请输入密码');
         user = { name, password };
     }
-    const testuser = await findUser(user.name, user.password);
-    console.log('User found in database:', testuser);
-    const found = USERS.find(
-        u => u.name === user.name && u.password === user.password
-    );
+    // const testuser = 
+    // console.log('User found in database:', testuser);
+    const found = await findUser(user.name, user.password);
     if (!found) {
         alert('登录失败，请重试');
         localStorage.removeItem('currentUser');
