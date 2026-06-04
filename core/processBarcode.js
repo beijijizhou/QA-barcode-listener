@@ -4,6 +4,7 @@ from '../ui/banner.js';
 import { saveBarcode }
 from '../db/barcodeRepo.js';
 import { getCurrentUser } from '../db/currentUser.js';
+import { requireLogin } from '../auth/login.js';
 
 
 export async function processBarcode(code) {
@@ -18,7 +19,7 @@ export async function processBarcode(code) {
     }
 
     try {
-
+        requireLogin();
         await saveBarcode(code);
 
     } catch (err) {

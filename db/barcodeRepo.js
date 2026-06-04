@@ -1,7 +1,7 @@
 import { supabase }
 from './supabase.js';
 export async function saveBarcode(code) {
-
+  
     const now = new Date().toISOString();
     const user = JSON.parse(localStorage.getItem('currentUser')).name;
     const { error } = await supabase
