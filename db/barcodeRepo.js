@@ -22,22 +22,18 @@ export async function saveBarcode(code) {
 
 
 export async function getTodayBarcodeCountByUser() {
+    const user = JSON.parse(
+        localStorage.getItem('currentUser')
+    ).name;
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const name = JSON.parse(localStorage.getItem('currentUser')).name;
-    console.log(name)
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    const { count, error } = await supabase
-        .from('barcode_scans')
-        .select('id', { count: 'exact', head: true })
-        .eq('scanned_by', name)
-        .gte('scanned_at', start.toISOString())
-        .lte('scanned_at', end.toISOString());
-    console.log('Count result:', { count, error });
+    const { data, error } = await supabase.rpc(
+        'get_today_barcode_count_by_user',
+        {
+            p_user: user
+        }
+    );
+
     if (error) throw error;
-    
 
-    return count;
+    return data;
 }
