@@ -8,7 +8,7 @@ export async function findUser(
         await supabase
             .from('users')
             .select('*')
-            .eq('name', name)
+            .or(`name.eq.${name},user_name.eq.${name}`)
             .eq('password', password)
             .maybeSingle();
 

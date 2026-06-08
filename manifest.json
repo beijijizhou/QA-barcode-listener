@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Barcode Extension",
-  "version": "1.0",
+  "version": "1.6.5",
   "content_scripts": [
     {
       "matches": [
@@ -18,7 +18,15 @@
         "https://example.com/*",
         "https://fangguo.com/*",
         "https://*.hihumbird.com/*",
-        "http://usf.19diy.com/*"
+        "http://usf.19diy.com/*",
+        "http://*.19diy.com/*",
+        "https://tshirt.riin.com/*",
+        "https://factory.globalpod.cn/*",
+        "https://gc.toyitool.com/*",
+        "http://gmanage.sdspod.com/*",
+        "https://factory.globalpod.cn/*",
+        "https://www.shineink.cn/*"
+
       ],
       "js": [
         "dist/content.js"
