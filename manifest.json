@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "QA Barcode Extension",
-  "version": "1.6.5",
+  "version": "1.6.7",
   "content_scripts": [
     {
       "matches": [
+        "https://longfeng.merchant.hihumbird.com/*",
         "https://manage.sdspod.com/*",
         "https://haloopod.merchant.hihumbird.com/*",
         "https://sbkj.merchant.hihumbird.com/*",
