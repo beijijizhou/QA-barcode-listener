@@ -53,6 +53,8 @@ export async function showActiveBadge() {
     badge.innerHTML = `
         <div style="margin-bottom:6px;">
             质检插件启动中 - ${user.name}
+                    <button id="qa-minimize-btn">−</button>
+
         </div>
         <div style="margin-bottom:6px;">
             今日扫描: ${count}
