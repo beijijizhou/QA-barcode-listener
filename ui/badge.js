@@ -53,7 +53,7 @@ export async function showActiveBadge() {
     badge.innerHTML = `
         <div style="margin-bottom:6px;">
             质检插件启动中 - ${user.name}
-                    <button id="qa-minimize-btn">−</button>
+                    <button id="qa-minimize-btn">缩小-</button>
 
         </div>
         <div style="margin-bottom:6px;">
@@ -65,9 +65,18 @@ export async function showActiveBadge() {
     `;
 
     badge
-        .querySelector('#qa-logout-btn')
-        .onclick = () => {
-            logout();
-            showActiveBadge();
-        };
+    .querySelector('#qa-minimize-btn')
+    .onclick = () => {
+        badge.innerHTML = `
+            <button id="qa-expand-btn">
+                展开+
+            </button>
+        `;
+
+        badge
+            .querySelector('#qa-expand-btn')
+            .onclick = () => {
+                showActiveBadge();
+            };
+    };
 }
