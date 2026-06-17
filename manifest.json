@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Barcode Extension",
-  "version": "1.6.7",
+  "version": "1.6.16",
   "content_scripts": [
     {
       "matches": [
@@ -26,7 +26,9 @@
         "https://gc.toyitool.com/*",
         "http://gmanage.sdspod.com/*",
         "https://factory.globalpod.cn/*",
-        "https://www.shineink.cn/*"
+        "https://www.shineink.cn/*",
+        "https://podvision.himytool.com/*",
+        "https://*.s2bdiy.com/*"
 
       ],
       "js": [
