@@ -1,4 +1,4 @@
-import {requireLogin, logout} from '../auth/login.js';
+import { requireLogin, logout } from '../auth/login.js';
 import { getTodayBarcodeCountByUser } from '../db/barcodeRepo.js';
 export async function showActiveBadge() {
     const user = JSON.parse(
@@ -32,13 +32,13 @@ export async function showActiveBadge() {
                 登录
             </button>
         `;
-        
+
         badge
             .querySelector('#qa-login-btn')
             .onclick = async () => {
                 const user =
                     await requireLogin();
-                
+
                 if (user) {
                     await showActiveBadge();
                 }
@@ -47,30 +47,47 @@ export async function showActiveBadge() {
         return;
     }
 
-    const count =
-        await getTodayBarcodeCountByUser();
-    console.log('Today\'s barcode count for user', user.name, ':', count);
-    badge.innerHTML = `
-        <div style="margin-bottom:6px;">
+const count =
+    await getTodayBarcodeCountByUser();
+
+badge.innerHTML = `
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:6px;
+        gap:6px;
+    ">
+        <span>
             质检插件启动中 - ${user.name}
-                    <button id="qa-minimize-btn">缩小-</button>
+        </span>
 
+        <div>
+            <button id="qa-minimize-btn">
+                缩小
+            </button>
         </div>
-        <div style="margin-bottom:6px;">
-            今日扫描: ${count}
-        </div>
-        <button id="qa-logout-btn">
-            退出登录
-        </button>
-    `;
+    </div>
 
-    badge
+    <div style="margin-bottom:6px;">
+        今日扫描: ${count}
+    </div>
+
+    <button id="qa-logout-btn">
+        退出登录
+    </button>
+`;
+
+badge
     .querySelector('#qa-minimize-btn')
     .onclick = () => {
+
         badge.innerHTML = `
             <button id="qa-expand-btn">
-                展开+
+                展开
             </button>
+
+            
         `;
 
         badge
@@ -78,5 +95,19 @@ export async function showActiveBadge() {
             .onclick = () => {
                 showActiveBadge();
             };
+
+        badge
+            .querySelector('#qa-logout-btn')
+            .onclick = () => {
+                logout();
+                showActiveBadge();
+            };
+    };
+
+badge
+    .querySelector('#qa-logout-btn')
+    .onclick = () => {
+        logout();
+        showActiveBadge();
     };
 }
