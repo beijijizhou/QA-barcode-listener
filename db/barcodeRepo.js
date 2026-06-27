@@ -1,5 +1,4 @@
-import { supabase }
-from './supabase.js';
+import { supabase } from './supabase.js';
 export async function saveBarcode(code) {
   
     const now = new Date().toISOString();
@@ -33,7 +32,9 @@ export async function getTodayBarcodeCountByUser() {
         }
     );
 
-    if (error) throw error;
+    if (error) {
+        console.error ("failed to fetch today count")
+        throw error;}
 
     return data;
 }

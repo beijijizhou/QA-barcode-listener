@@ -23,7 +23,7 @@ export async function requireLogin() {
     if (!found) {
         alert('登录失败，请重试');
         localStorage.removeItem('currentUser');
-        return requireLogin();
+        return null;
     }
     localStorage.setItem('currentUser', JSON.stringify(found));
     return found;

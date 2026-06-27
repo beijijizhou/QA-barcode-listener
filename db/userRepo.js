@@ -4,6 +4,7 @@ export async function findUser(
     name,
     password
 ) {
+    console.log(name,password)
     const { data, error } =
         await supabase
             .from('users')
