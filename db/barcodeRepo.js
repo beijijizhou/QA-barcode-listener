@@ -38,3 +38,21 @@ export async function getTodayBarcodeCountByUser() {
 
     return data;
 }
+
+
+export async function getUsersByDepartment(
+    department
+) {
+    const { data, error } = await supabase
+        .from("users")
+        .select("name")
+        .eq("department", department)
+        .order("name");
+
+    if (error) {
+        console.error(error);
+        throw error;
+    }
+
+    return data;
+}
