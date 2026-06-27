@@ -32,7 +32,7 @@ export async function requireLogin() {
 export function getCurrentUser() {
     const userStr = localStorage.getItem('currentUser');
     if (!userStr) return null;
-    console.log('Retrieved user from localStorage:', userStr);
+    // console.log('Retrieved user from localStorage:', userStr);
     try {
         return JSON.parse(userStr);
     } catch (e) {

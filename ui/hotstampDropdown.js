@@ -29,6 +29,10 @@ export async function renderHotstampDropdown(badge) {
     wrapper
         .querySelector("#qa-hotstamp-user")
         .onchange = (e) => {
+            localStorage.setItem(
+                "qa_hotstamp_user",
+                e.target.value
+            );
             console.log(
                 "Selected:",
                 e.target.value

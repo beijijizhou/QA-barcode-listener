@@ -3,13 +3,19 @@ export async function saveBarcode(code) {
   
     const now = new Date().toISOString();
     const user = JSON.parse(localStorage.getItem('currentUser')).name;
+    const hotstampUser = localStorage.getItem(
+        "qa_hotstamp_user"
+    );
+    console.log(hotstampUser)
     const { error } = await supabase
         .from('barcode_scans')
         .upsert(
             {
                 barcode: code,
                 scanned_by: user,
-                scanned_at: now
+                scanned_at: now,
+                hotstamp_by: hotstampUser
+
             },
             {
                 onConflict: 'barcode'
