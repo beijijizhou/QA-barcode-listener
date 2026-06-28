@@ -5,6 +5,7 @@ import { saveBarcode }
 from '../db/barcodeRepo.js';
 import { getCurrentUser } from '../db/currentUser.js';
 import { requireLogin } from '../auth/login.js';
+import { incrementTodayScanCount } from '../ui/badge.js';
 
 
 export async function processBarcode(code) {
@@ -19,8 +20,11 @@ export async function processBarcode(code) {
     }
 
     try {
-        requireLogin();
+        const user = await requireLogin();
+        if (!user) return;
+
         await saveBarcode(code);
+        incrementTodayScanCount(user);
 
     } catch (err) {
 

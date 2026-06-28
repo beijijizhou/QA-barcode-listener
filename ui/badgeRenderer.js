@@ -62,7 +62,10 @@ export async function renderLoggedIn(
             margin-bottom:6px;
         ">
             <span>
-                质检插件启动中 - ${user.name}
+                质检插件启动中 -
+                <span style="color:#003366;">
+                    ${user.name}
+                </span>
             </span>
 
             <button id="qa-minimize-btn">
@@ -71,7 +74,10 @@ export async function renderLoggedIn(
         </div>
 
         <div style="margin-bottom:6px;">
-            今日扫描: ${count}
+            今日扫描:
+            <span id="qa-today-scan-count">
+                ${count}
+            </span>
         </div>
 
         <button id="qa-logout-btn">

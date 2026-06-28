@@ -12,6 +12,10 @@ export async function requireLogin() {
 
     let user = getCurrentUser() 
     
+    if (user) {
+        return user;
+    }
+
     if (!user) {
         const name = prompt('请输入用户名');
         const password = prompt('请输入密码');
