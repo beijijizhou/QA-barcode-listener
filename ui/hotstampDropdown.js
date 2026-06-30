@@ -1,33 +1,12 @@
 import { getUsersByDepartment } from "../db/barcodeRepo";
+import {
+    getSharedHotstampUser,
+    isHotstampUserKey,
+    onSharedStateChange,
+    setSharedHotstampUser
+} from "../storage/sharedState";
 
-const HOTSTAMP_USER_KEY = "qa_hotstamp_user";
-let isListeningForHotstampChanges = false;
-
-function shareHotstampUser(name) {
-    chrome.storage?.local?.set({
-        [HOTSTAMP_USER_KEY]: name
-    });
-}
-
-function loadSharedHotstampUser() {
-    return new Promise(resolve => {
-        if (!chrome.storage?.local) {
-            resolve(
-                localStorage.getItem(HOTSTAMP_USER_KEY) || ""
-            );
-            return;
-        }
-
-        chrome.storage.local.get(
-            HOTSTAMP_USER_KEY,
-            result => resolve(
-                result[HOTSTAMP_USER_KEY] ||
-                localStorage.getItem(HOTSTAMP_USER_KEY) ||
-                ""
-            )
-        );
-    });
-}
+let isListeningForSharedHotstamp = false;
 
 function setHotstampSelectValue(value) {
     const select =
@@ -38,23 +17,21 @@ function setHotstampSelectValue(value) {
     }
 
     localStorage.setItem(
-        HOTSTAMP_USER_KEY,
+        "qa_hotstamp_user",
         value || ""
     );
 }
 
 function listenForHotstampChanges() {
-    if (isListeningForHotstampChanges) return;
+    if (isListeningForSharedHotstamp) return;
 
-    chrome.storage?.onChanged?.addListener((changes, areaName) => {
-        const changedUser = changes[HOTSTAMP_USER_KEY];
-
-        if (areaName === "local" && changedUser) {
-            setHotstampSelectValue(changedUser.newValue);
+    onSharedStateChange((key, value) => {
+        if (isHotstampUserKey(key)) {
+            setHotstampSelectValue(value);
         }
     });
 
-    isListeningForHotstampChanges = true;
+    isListeningForSharedHotstamp = true;
 }
 
 export async function renderHotstampDropdown(badge) {
@@ -101,12 +78,12 @@ export async function renderHotstampDropdown(badge) {
         wrapper.querySelector("#qa-hotstamp-user");
 
     setHotstampSelectValue(
-        await loadSharedHotstampUser()
+        await getSharedHotstampUser()
     );
     listenForHotstampChanges();
 
-    select.onchange = (e) => {
+    select.onchange = async (e) => {
         setHotstampSelectValue(e.target.value);
-        shareHotstampUser(e.target.value);
+        await setSharedHotstampUser(e.target.value);
     };
 }

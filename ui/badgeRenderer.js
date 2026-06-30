@@ -92,9 +92,9 @@ export async function renderLoggedIn(
 
     badge
         .querySelector('#qa-logout-btn')
-        .onclick = () => {
-            logout();
-            showActiveBadge();
+        .onclick = async () => {
+            await logout();
+            await showActiveBadge();
         };
     await renderHotstampDropdown(badge);
 }
@@ -117,8 +117,8 @@ function renderMinimized(badge) {
 
     badge
         .querySelector('#qa-logout-btn')
-        .onclick = () => {
-            logout();
-            showActiveBadge();
+        .onclick = async () => {
+            await logout();
+            await showActiveBadge();
         };
 }

@@ -1,21 +1,18 @@
 
 import { getTodayBarcodeCountByUser,getUsersByDepartment } from '../db/barcodeRepo.js';
 import { renderLoggedIn, getBadge, renderLoggedOut } from './badgeRenderer.js';
+import {
+    getSharedCurrentUser,
+    getTodayCountKey,
+    isCurrentUserKey,
+    isTodayCountKey,
+    onSharedStateChange,
+    setCurrentUserOnPage,
+    setSharedTodayCount
+} from '../storage/sharedState.js';
 
 let activeCountStorageKey = null;
-let isListeningForCountChanges = false;
-
-const getCountStorageKey = (user) =>
-    [
-        'qa_today_scan_count',
-        user.name,
-        new Intl.DateTimeFormat(
-            'en-CA',
-            {
-                timeZone: 'America/New_York'
-            }
-        ).format(new Date())
-    ].join(':');
+let isListeningForSharedState = false;
 
 function setVisibleCount(count) {
     const countEl =
@@ -43,36 +40,33 @@ function getVisibleCount() {
         currentCount;
 }
 
-function shareCount(count) {
-    if (!activeCountStorageKey) return;
+function listenForSharedState() {
+    if (isListeningForSharedState) return;
 
-    chrome.storage?.local?.set({
-        [activeCountStorageKey]: count
-    });
-}
+    onSharedStateChange((key, value) => {
+        if (isCurrentUserKey(key)) {
+            setCurrentUserOnPage(value);
+            showActiveBadge();
+            return;
+        }
 
-function listenForSharedCount() {
-    if (isListeningForCountChanges) return;
-
-    chrome.storage?.onChanged?.addListener((changes, areaName) => {
-        const changedCount =
-            activeCountStorageKey &&
-            changes[activeCountStorageKey];
-
-        if (areaName === 'local' && changedCount) {
-            setVisibleCount(changedCount.newValue);
+        if (
+            isTodayCountKey(key) &&
+            key === activeCountStorageKey
+        ) {
+            setVisibleCount(value);
         }
     });
 
-    isListeningForCountChanges = true;
+    isListeningForSharedState = true;
 }
 
 export async function showActiveBadge() {
     const badge = getBadge();
 
-    const user = JSON.parse(
-        localStorage.getItem('currentUser')
-    );
+    listenForSharedState();
+
+    const user = await getSharedCurrentUser();
 
     if (!user) {
         await renderLoggedOut(badge);
@@ -81,7 +75,7 @@ export async function showActiveBadge() {
 
     const count =
         await getTodayBarcodeCountByUser();
-    activeCountStorageKey = getCountStorageKey(user);
+    activeCountStorageKey = getTodayCountKey(user);
     
     
     renderLoggedIn(
@@ -91,17 +85,22 @@ export async function showActiveBadge() {
         
     );
 
-    listenForSharedCount();
-    shareCount(count);
+    await setSharedTodayCount(
+        user,
+        count
+    );
    
 }
 
 export function incrementTodayScanCount(user) {
     activeCountStorageKey =
-        getCountStorageKey(user);
+        getTodayCountKey(user);
 
     const nextCount = getVisibleCount() + 1;
 
     setVisibleCount(nextCount);
-    shareCount(nextCount);
+    setSharedTodayCount(
+        user,
+        nextCount
+    );
 }

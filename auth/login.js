@@ -2,6 +2,11 @@
 import { USERS } from "../data/users.js";
 // import  {findUser}  from "../db/userRepo.js";
 import { findUser } from "../db/userRepo.js";
+import {
+    getCurrentUserFromPage,
+    getSharedCurrentUser,
+    setSharedCurrentUser
+} from "../storage/sharedState.js";
 export async function requireLogin() {
     // let user =     {
     //     employeeId: 'EMP003',
@@ -10,7 +15,7 @@ export async function requireLogin() {
     // };
     //const user = await findUser();
 
-    let user = getCurrentUser() 
+    let user = await getSharedCurrentUser() 
     
     if (user) {
         return user;
@@ -26,24 +31,16 @@ export async function requireLogin() {
     const found = await findUser(user.name, user.password);
     if (!found) {
         alert('登录失败，请重试');
-        localStorage.removeItem('currentUser');
+        await setSharedCurrentUser(null);
         return null;
     }
-    localStorage.setItem('currentUser', JSON.stringify(found));
+    await setSharedCurrentUser(found);
     return found;
 }
 
 export function getCurrentUser() {
-    const userStr = localStorage.getItem('currentUser');
-    if (!userStr) return null;
-    // console.log('Retrieved user from localStorage:', userStr);
-    try {
-        return JSON.parse(userStr);
-    } catch (e) {
-        console.error('Failed to parse user from localStorage', e);
-        return null;
-    }
+    return getCurrentUserFromPage();
 }
-export function logout() {
-    localStorage.removeItem('currentUser');
+export async function logout() {
+    await setSharedCurrentUser(null);
 }
