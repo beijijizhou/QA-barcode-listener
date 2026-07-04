@@ -44,7 +44,7 @@ export async function renderLoggedOut(badge) {
                 await requireLogin();
 
             if (user) {
-                showActiveBadge();
+                await showActiveBadge();
             }
         };
 }
@@ -112,7 +112,7 @@ function renderMinimized(badge) {
 
     badge
         .querySelector('#qa-expand-btn')
-        .onclick = () =>
+        .onclick = async () =>
             showActiveBadge();
 
     badge

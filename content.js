@@ -6,11 +6,15 @@ import { findUser } from './db/userRepo.js';
 
 
 
-showActiveBadge();
+showActiveBadge().catch(error => {
+    console.error(
+        "QA Barcode Extension failed to render badge:",
+        error
+    );
+});
 
 registerPhysicalScanner();
 registerMockScanner();
 registerUserSwitcher();
-
 
 

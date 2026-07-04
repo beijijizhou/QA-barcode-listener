@@ -1,0 +1,2 @@
+ALTER TABLE barcode_scans
+ADD COLUMN IF NOT EXISTS platform TEXT;

@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { getPlatformFromHostname } from '../core/platform.js';
 
 const usersByDepartmentCache = {};
 
@@ -14,7 +15,8 @@ export async function saveBarcode(code) {
         barcode: code,
         scanned_by: user,
         scanned_at: now,
-        hotstamp_by: hotstampUser
+        hotstamp_by: hotstampUser,
+        platform: getPlatformFromHostname()
     };
 
     const { error } = await supabase
