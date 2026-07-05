@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Barcode Extension",
-  "version": "1.7.2",
+  "version": "1.7.4",
   "permissions": [
     "storage"
   ],
@@ -32,7 +32,6 @@
         "https://www.shineink.cn/*",
         "https://podvision.himytool.com/*",
         "https://*.s2bdiy.com/*"
-
       ],
       "js": [
         "dist/content.js"
