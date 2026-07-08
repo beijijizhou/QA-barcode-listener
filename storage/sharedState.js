@@ -1,6 +1,8 @@
 const CURRENT_USER_KEY = "qa_current_user";
 const HOTSTAMP_USER_KEY = "qa_hotstamp_user";
 const TODAY_COUNT_PREFIX = "qa_today_scan_count";
+const TODAY_PLATFORM_SUMMARY_PREFIX = "qa_today_platform_summary";
+const TODAY_RANKINGS_PREFIX = "qa_today_rankings";
 
 function getStorage() {
     return globalThis.chrome?.storage?.local;
@@ -144,6 +146,32 @@ export function getTodayCountKey(user) {
     ].join(":");
 }
 
+export function getTodayPlatformSummaryKey(user) {
+    return [
+        TODAY_PLATFORM_SUMMARY_PREFIX,
+        user.name,
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone: "America/New_York"
+            }
+        ).format(new Date())
+    ].join(":");
+}
+
+export function getTodayRankingsKey(user) {
+    return [
+        TODAY_RANKINGS_PREFIX,
+        user.name,
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone: "America/New_York"
+            }
+        ).format(new Date())
+    ].join(":");
+}
+
 export async function setSharedTodayCount(
     user,
     count
@@ -157,5 +185,37 @@ export async function setSharedTodayCount(
 export function isTodayCountKey(key) {
     return key.startsWith(
         `${TODAY_COUNT_PREFIX}:`
+    );
+}
+
+export async function setSharedTodayPlatformSummary(
+    user,
+    summary
+) {
+    await writeSharedValue(
+        getTodayPlatformSummaryKey(user),
+        summary
+    );
+}
+
+export function isTodayPlatformSummaryKey(key) {
+    return key.startsWith(
+        `${TODAY_PLATFORM_SUMMARY_PREFIX}:`
+    );
+}
+
+export async function setSharedTodayRankings(
+    user,
+    rankings
+) {
+    await writeSharedValue(
+        getTodayRankingsKey(user),
+        rankings
+    );
+}
+
+export function isTodayRankingsKey(key) {
+    return key.startsWith(
+        `${TODAY_RANKINGS_PREFIX}:`
     );
 }

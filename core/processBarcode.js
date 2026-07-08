@@ -5,7 +5,10 @@ import { saveBarcode }
 from '../db/barcodeRepo.js';
 import { getCurrentUser } from '../db/currentUser.js';
 import { requireLogin } from '../auth/login.js';
-import { incrementTodayScanCount } from '../ui/badge.js';
+import {
+    incrementTodayPlatformSummary,
+    incrementTodayScanCount
+} from '../ui/badge.js';
 import { normalizeBarcodeForCurrentSite } from './normalizeBarcode.js';
 
 
@@ -29,6 +32,7 @@ export async function processBarcode(code) {
 
         await saveBarcode(barcode);
         incrementTodayScanCount(user);
+        incrementTodayPlatformSummary(user);
 
     } catch (err) {
 
