@@ -1,31 +1,47 @@
 
 import {
+    buildSwitchSummary,
     getTodayBarcodeCountByUser,
     getTodayPlatformDashboardByUser
 } from '../db/barcodeRepo.js';
-import { renderLoggedIn, getBadge, renderLoggedOut } from './badgeRenderer.js';
 import {
+    renderLoggedIn,
+    getBadge,
+    renderLoggedOut,
+    renderMinimized
+} from './badgeRenderer.js';
+import {
+    getSharedBadgeMinimized,
     getSharedCurrentUser,
     getTodayCountKey,
     getTodayPlatformSummaryKey,
     getTodayRankingsKey,
+    getTodaySwitchSummaryKey,
+    isBadgeMinimizedKey,
     isCurrentUserKey,
     isTodayCountKey,
     isTodayPlatformSummaryKey,
     isTodayRankingsKey,
+    isTodaySwitchSummaryKey,
     onSharedStateChange,
     setCurrentUserOnPage,
     setSharedTodayCount,
     setSharedTodayPlatformSummary,
-    setSharedTodayRankings
+    setSharedTodayRankings,
+    setSharedTodaySwitchSummary
 } from '../storage/sharedState.js';
 import { getPlatformFromHostname } from '../core/platform.js';
 
 let activeCountStorageKey = null;
 let activePlatformSummaryStorageKey = null;
 let activeRankingsStorageKey = null;
+let activeSwitchSummaryStorageKey = null;
 let isListeningForSharedState = false;
 let currentUserName = "";
+let currentCount = 0;
+let currentPlatformSummary = [];
+let currentHourlyRows = [];
+let currentSwitchSummary = {};
 let currentRankings = {
     haloo: [],
     other: []
@@ -41,32 +57,19 @@ function escapeHtml(value) {
 }
 
 function setVisibleCount(count) {
+    currentCount = Number(count) || 0;
+
     const countEl =
         document.getElementById('qa-today-scan-count');
 
     if (!countEl) return;
 
-    countEl.textContent = String(count);
-}
-
-function getVisibleCount() {
-    const countEl =
-        document.getElementById('qa-today-scan-count');
-
-    if (!countEl) return 0;
-
-    const currentCount =
-        Number.parseInt(
-            countEl.textContent,
-            10
-        );
-
-    return Number.isNaN(currentCount) ?
-        0 :
-        currentCount;
+    countEl.textContent = String(currentCount);
 }
 
 function renderVisiblePlatformSummary(summary = []) {
+    currentPlatformSummary = summary;
+
     const summaryEl =
         document.getElementById('qa-platform-summary');
 
@@ -112,7 +115,9 @@ function getVisiblePlatformSummary() {
     const summaryEl =
         document.getElementById('qa-platform-summary');
 
-    if (!summaryEl) return [];
+    if (!summaryEl) {
+        return [...currentPlatformSummary];
+    }
 
     return [
         ...summaryEl.querySelectorAll(
@@ -215,6 +220,98 @@ function renderVisibleRankings(rankings = {}) {
     );
 }
 
+function getRiskColor(risk) {
+    if (risk === "正常") return "#003366";
+    if (risk === "注意") return "#7a4b00";
+    if (risk === "频繁切换") return "#7f1d1d";
+    return "#eef7ff";
+}
+
+function renderSwitchSteps(steps = []) {
+    if (!steps.length) {
+        return `
+            <span style="color:#ffffff;">
+                暂无
+            </span>
+        `;
+    }
+
+    return steps
+        .map((step, index) => `
+            ${index > 0 ? `
+                <span style="
+                    color:#d7f4df;
+                    white-space:nowrap;
+                ">
+                    →
+                </span>
+            ` : ""}
+            <span style="
+                white-space:nowrap;
+                color:#ffffff;
+            ">
+                ${escapeHtml(step.work)}（${Number(step.count) || 0}）
+            </span>
+        `)
+        .join("");
+}
+
+function renderVisibleSwitchSummary(summary = {}) {
+    currentSwitchSummary = summary;
+
+    const switchEl =
+        document.getElementById(
+            'qa-switch-summary'
+        );
+
+    if (!switchEl) return;
+
+    const risk = summary.risk || "暂无";
+
+    switchEl.innerHTML = `
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            font-size:12px;
+            line-height:1.5;
+        ">
+            <span>切换次数</span>
+            <span style="
+                color:${getRiskColor(risk)};
+                font-weight:700;
+            ">
+                ${Number(summary.switchCount) || 0}
+                / ${escapeHtml(risk)}
+            </span>
+        </div>
+        <div style="
+            font-size:12px;
+            line-height:1.45;
+            margin-top:3px;
+            max-width:260px;
+        ">
+            <div style="
+                color:#7f1d1d;
+                font-weight:700;
+                margin-bottom:4px;
+                white-space:nowrap;
+            ">
+                规定流程: Haloo → 小平台 → Haloo
+            </div>
+            <div style="
+                display:flex;
+                flex-wrap:wrap;
+                align-items:center;
+                column-gap:3px;
+                row-gap:1px;
+            ">
+                ${renderSwitchSteps(summary.steps)}
+            </div>
+        </div>
+    `;
+}
+
 function isHalooPlatform(platform) {
     return String(platform || "")
         .trim()
@@ -253,12 +350,94 @@ function incrementRankingGroup(group) {
     };
 }
 
+function getCurrentNewYorkHourKey() {
+    return new Intl.DateTimeFormat(
+        "en-CA",
+        {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            hour12: false
+        }
+    ).format(new Date());
+}
+
+function getNewYorkHourKey(value) {
+    return new Intl.DateTimeFormat(
+        "en-CA",
+        {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            hour12: false
+        }
+    ).format(new Date(value));
+}
+
+function getNewYorkHourLabel() {
+    return new Intl.DateTimeFormat(
+        "en-US",
+        {
+            timeZone: "America/New_York",
+            hour: "2-digit",
+            hour12: false
+        }
+    ).format(new Date()) + ":00";
+}
+
+function incrementCurrentHour(platform) {
+    const currentHourKey =
+        getCurrentNewYorkHourKey();
+    let currentHour = currentHourlyRows.find(
+        row =>
+            getNewYorkHourKey(row.hourStartAt) ===
+            currentHourKey
+    );
+
+    if (!currentHour) {
+        currentHour = {
+            hourStartAt: new Date().toISOString(),
+            hourLabel: getNewYorkHourLabel(),
+            halooCount: 0,
+            otherCount: 0,
+            totalCount: 0
+        };
+        currentHourlyRows.push(currentHour);
+    }
+
+    if (isHalooPlatform(platform)) {
+        currentHour.halooCount += 1;
+    } else {
+        currentHour.otherCount += 1;
+    }
+
+    currentHour.totalCount += 1;
+    currentHourlyRows.sort((a, b) =>
+        new Date(a.hourStartAt) -
+        new Date(b.hourStartAt)
+    );
+}
+
 function listenForSharedState() {
     if (isListeningForSharedState) return;
 
     onSharedStateChange((key, value) => {
         if (isCurrentUserKey(key)) {
             setCurrentUserOnPage(value);
+            showActiveBadge();
+            return;
+        }
+
+        if (isBadgeMinimizedKey(key)) {
+            if (value) {
+                renderMinimized(getBadge());
+                return;
+            }
+
             showActiveBadge();
             return;
         }
@@ -282,6 +461,13 @@ function listenForSharedState() {
             key === activeRankingsStorageKey
         ) {
             renderVisibleRankings(value);
+        }
+
+        if (
+            isTodaySwitchSummaryKey(key) &&
+            key === activeSwitchSummaryStorageKey
+        ) {
+            renderVisibleSwitchSummary(value);
         }
     });
 
@@ -307,23 +493,39 @@ export async function showActiveBadge() {
             getTodayBarcodeCountByUser(),
             getTodayPlatformDashboardByUser()
         ]);
-    const { platformSummary, rankings } = dashboard;
+    const {
+        platformSummary,
+        rankings,
+        hourlyRows,
+        switchSummary
+    } = dashboard;
+    currentCount = Number(count) || 0;
+    currentPlatformSummary = platformSummary;
+    currentHourlyRows = hourlyRows || [];
+    currentSwitchSummary = switchSummary || {};
     activeCountStorageKey = getTodayCountKey(user);
     activePlatformSummaryStorageKey =
         getTodayPlatformSummaryKey(user);
     activeRankingsStorageKey =
         getTodayRankingsKey(user);
+    activeSwitchSummaryStorageKey =
+        getTodaySwitchSummaryKey(user);
     currentRankings = normalizeRankings(rankings);
     
     
-    renderLoggedIn(
-        badge,
-        user,
-        count,
-        platformSummary,
-        rankings,
-        
-    );
+    if (await getSharedBadgeMinimized()) {
+        renderMinimized(badge);
+    } else {
+        renderLoggedIn(
+            badge,
+            user,
+            count,
+            platformSummary,
+            rankings,
+            switchSummary,
+            
+        );
+    }
 
     await setSharedTodayCount(
         user,
@@ -337,6 +539,10 @@ export async function showActiveBadge() {
         user,
         rankings
     );
+    await setSharedTodaySwitchSummary(
+        user,
+        switchSummary
+    );
    
 }
 
@@ -344,7 +550,7 @@ export function incrementTodayScanCount(user) {
     activeCountStorageKey =
         getTodayCountKey(user);
 
-    const nextCount = getVisibleCount() + 1;
+    const nextCount = currentCount + 1;
 
     setVisibleCount(nextCount);
     setSharedTodayCount(
@@ -388,5 +594,18 @@ export function incrementTodayPlatformSummary(user) {
     setSharedTodayRankings(
         user,
         currentRankings
+    );
+
+    activeSwitchSummaryStorageKey =
+        getTodaySwitchSummaryKey(user);
+    incrementCurrentHour(platform);
+    currentSwitchSummary =
+        buildSwitchSummary(currentHourlyRows);
+    renderVisibleSwitchSummary(
+        currentSwitchSummary
+    );
+    setSharedTodaySwitchSummary(
+        user,
+        currentSwitchSummary
     );
 }

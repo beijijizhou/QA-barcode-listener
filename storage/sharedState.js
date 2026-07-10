@@ -1,8 +1,10 @@
 const CURRENT_USER_KEY = "qa_current_user";
 const HOTSTAMP_USER_KEY = "qa_hotstamp_user";
+const BADGE_MINIMIZED_KEY = "qa_badge_minimized";
 const TODAY_COUNT_PREFIX = "qa_today_scan_count";
 const TODAY_PLATFORM_SUMMARY_PREFIX = "qa_today_platform_summary";
 const TODAY_RANKINGS_PREFIX = "qa_today_rankings";
+const TODAY_SWITCH_SUMMARY_PREFIX = "qa_today_switch_summary";
 
 function getStorage() {
     return globalThis.chrome?.storage?.local;
@@ -19,6 +21,29 @@ function readSharedValue(key) {
         storage.get(
             key,
             result => resolve(result[key])
+        );
+    });
+}
+
+function readSharedEntry(key) {
+    const storage = getStorage();
+
+    if (!storage) {
+        return Promise.resolve({
+            hasValue: false,
+            value: undefined
+        });
+    }
+
+    return new Promise(resolve => {
+        storage.get(
+            key,
+            result => resolve({
+                hasValue:
+                    Object.prototype.hasOwnProperty
+                        .call(result, key),
+                value: result[key]
+            })
         );
     });
 }
@@ -91,12 +116,12 @@ export async function setSharedCurrentUser(user) {
 }
 
 export async function getSharedCurrentUser() {
-    const user =
-        await readSharedValue(CURRENT_USER_KEY);
+    const { hasValue, value } =
+        await readSharedEntry(CURRENT_USER_KEY);
 
-    if (user) {
-        setCurrentUserOnPage(user);
-        return user;
+    if (hasValue) {
+        setCurrentUserOnPage(value);
+        return value;
     }
 
     return getCurrentUserFromPage();
@@ -133,6 +158,25 @@ export function isHotstampUserKey(key) {
     return key === HOTSTAMP_USER_KEY;
 }
 
+export async function setSharedBadgeMinimized(
+    isMinimized
+) {
+    await writeSharedValue(
+        BADGE_MINIMIZED_KEY,
+        Boolean(isMinimized)
+    );
+}
+
+export async function getSharedBadgeMinimized() {
+    return Boolean(
+        await readSharedValue(BADGE_MINIMIZED_KEY)
+    );
+}
+
+export function isBadgeMinimizedKey(key) {
+    return key === BADGE_MINIMIZED_KEY;
+}
+
 export function getTodayCountKey(user) {
     return [
         TODAY_COUNT_PREFIX,
@@ -162,6 +206,19 @@ export function getTodayPlatformSummaryKey(user) {
 export function getTodayRankingsKey(user) {
     return [
         TODAY_RANKINGS_PREFIX,
+        user.name,
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone: "America/New_York"
+            }
+        ).format(new Date())
+    ].join(":");
+}
+
+export function getTodaySwitchSummaryKey(user) {
+    return [
+        TODAY_SWITCH_SUMMARY_PREFIX,
         user.name,
         new Intl.DateTimeFormat(
             "en-CA",
@@ -217,5 +274,21 @@ export async function setSharedTodayRankings(
 export function isTodayRankingsKey(key) {
     return key.startsWith(
         `${TODAY_RANKINGS_PREFIX}:`
+    );
+}
+
+export async function setSharedTodaySwitchSummary(
+    user,
+    summary
+) {
+    await writeSharedValue(
+        getTodaySwitchSummaryKey(user),
+        summary
+    );
+}
+
+export function isTodaySwitchSummaryKey(key) {
+    return key.startsWith(
+        `${TODAY_SWITCH_SUMMARY_PREFIX}:`
     );
 }

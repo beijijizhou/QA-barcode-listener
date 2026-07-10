@@ -22,16 +22,4 @@ export function registerPhysicalScanner() {
         }
     });
 
-    window.addEventListener('paste', (event) => {
-        const code =
-            event.clipboardData
-                ?.getData('text')
-                ?.trim();
-
-        if (!code) return;
-
-        event.preventDefault();
-        buffer = '';
-        processBarcode(code);
-    });
 }

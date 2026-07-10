@@ -1,6 +1,7 @@
 import { requireLogin,logout } from "../auth/login";
 import { showActiveBadge } from "./badge";
 import { renderHotstampDropdown } from "./hotstampDropdown";
+import { setSharedBadgeMinimized } from "../storage/sharedState";
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -146,6 +147,91 @@ function renderRankings(
     `;
 }
 
+function getRiskColor(risk) {
+    if (risk === "正常") return "#003366";
+    if (risk === "注意") return "#7a4b00";
+    if (risk === "频繁切换") return "#7f1d1d";
+    return "#eef7ff";
+}
+
+function renderSwitchSteps(steps = []) {
+    if (!steps.length) {
+        return `
+            <span style="color:#ffffff;">
+                暂无
+            </span>
+        `;
+    }
+
+    return steps
+        .map((step, index) => `
+            ${index > 0 ? `
+                <span style="
+                    color:#d7f4df;
+                    white-space:nowrap;
+                ">
+                    →
+                </span>
+            ` : ""}
+            <span style="
+                white-space:nowrap;
+                color:#ffffff;
+            ">
+                ${escapeHtml(step.work)}（${Number(step.count) || 0}）
+            </span>
+        `)
+        .join("");
+}
+
+function renderSwitchSummary(summary = {}) {
+    const risk = summary.risk || "暂无";
+
+    return `
+        <div id="qa-switch-summary">
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                gap:12px;
+                font-size:12px;
+                line-height:1.5;
+            ">
+                <span>切换次数</span>
+                <span style="
+                    color:${getRiskColor(risk)};
+                    font-weight:700;
+                ">
+                    ${Number(summary.switchCount) || 0}
+                    / ${escapeHtml(risk)}
+                </span>
+            </div>
+            <div style="
+                font-size:12px;
+                line-height:1.45;
+                margin-top:3px;
+                max-width:260px;
+            ">
+                <div style="
+                    color:#7f1d1d;
+                    font-weight:700;
+                    margin-bottom:4px;
+                    white-space:nowrap;
+                ">
+                    规定流程: Haloo → 小平台 → Haloo
+                </div>
+                <div style="
+                    display:flex;
+                    flex-wrap:wrap;
+                    align-items:center;
+                    column-gap:3px;
+                    row-gap:1px;
+                ">
+                    ${renderSwitchSteps(summary.steps)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 export function getBadge() {
     let badge =
         document.getElementById('qa-active-badge');
@@ -200,6 +286,7 @@ export async function renderLoggedIn(
     count,
     platformSummary = [],
     rankings = {},
+    switchSummary = {},
 ) {
     badge.innerHTML = `
         <div style="
@@ -254,6 +341,21 @@ export async function renderLoggedIn(
             ${renderRankings(rankings, user.name)}
         </div>
 
+        <div style="
+            margin-bottom:8px;
+            padding-top:6px;
+            border-top:1px solid rgba(255,255,255,0.35);
+        ">
+            <div style="
+                font-size:12px;
+                margin-bottom:4px;
+                color:#eef7ff;
+            ">
+                今日流程
+            </div>
+            ${renderSwitchSummary(switchSummary)}
+        </div>
+
         <button id="qa-logout-btn">
             退出登录
         </button>
@@ -261,8 +363,10 @@ export async function renderLoggedIn(
     
     badge
         .querySelector('#qa-minimize-btn')
-        .onclick = () =>
+        .onclick = async () => {
+            await setSharedBadgeMinimized(true);
             renderMinimized(badge);
+        };
 
     badge
         .querySelector('#qa-logout-btn')
@@ -273,7 +377,7 @@ export async function renderLoggedIn(
     await renderHotstampDropdown(badge);
 }
 
-function renderMinimized(badge) {
+export function renderMinimized(badge) {
     badge.innerHTML = `
         <button id="qa-expand-btn">
             展开
@@ -286,8 +390,10 @@ function renderMinimized(badge) {
 
     badge
         .querySelector('#qa-expand-btn')
-        .onclick = async () =>
+        .onclick = async () => {
+            await setSharedBadgeMinimized(false);
             showActiveBadge();
+        };
 
     badge
         .querySelector('#qa-logout-btn')

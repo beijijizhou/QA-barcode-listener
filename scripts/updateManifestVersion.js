@@ -12,8 +12,13 @@ const dateParts = new Intl.DateTimeFormat("en-US", {
 
 const month = dateParts.find(part => part.type === "month").value;
 const day = dateParts.find(part => part.type === "day").value;
+const dateVersionPrefix = `1.${month}.${day}`;
+const currentVersion = String(manifest.version || "");
 
-manifest.version = `1.${month}.${day}`;
+manifest.version =
+    currentVersion.startsWith(`${dateVersionPrefix}.`) ?
+        currentVersion :
+        dateVersionPrefix;
 
 fs.writeFileSync(
     manifestPath,

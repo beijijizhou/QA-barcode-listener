@@ -7,7 +7,7 @@
     "build": "vite build",
     "dev": "vite build --watch --mode development",
     "prod": "vite build --mode production",
-    "release": "node scripts/updateManifestVersion.js && npm run prod && rm -rf release && mkdir release && cp manifest.json release/ && cp -R dist release/",
+    "release": "node scripts/updateManifestVersion.js && npm run prod && rm -rf release release.zip && mkdir release && cp manifest.json release/ && cp -R dist release/ && cd release && zip -r ../release.zip .",
     "ext": "web-ext run --target=chromium --source-dir=."
   },
   "repository": {
