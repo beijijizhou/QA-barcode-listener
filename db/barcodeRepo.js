@@ -3,6 +3,18 @@ import { getPlatformFromHostname } from '../core/platform.js';
 
 const usersByDepartmentCache = {};
 
+function readableError(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    try {
+        return JSON.stringify(error);
+    } catch (_jsonError) {
+        return String(error);
+    }
+}
+
 function getTodayInNewYork() {
     return new Intl.DateTimeFormat(
         "en-CA",
@@ -235,14 +247,16 @@ export async function getTodayPlatformDashboardByUser() {
 
     if (platformResult.error) {
         console.error(
-            "failed to fetch today platform dashboard"
+            "failed to fetch today platform dashboard",
+            readableError(platformResult.error)
         );
         throw platformResult.error;
     }
 
     if (hourlyResult.error) {
         console.error(
-            "failed to fetch today switch summary"
+            "failed to fetch today switch summary",
+            readableError(hourlyResult.error)
         );
         throw hourlyResult.error;
     }
@@ -272,6 +286,158 @@ export async function getTodayPlatformDashboardByUser() {
     };
 }
 
+export async function getCurrentPlatformCredentialStatus() {
+    const platform = getPlatformFromHostname();
+    const { data, error } = await supabase.rpc(
+        'get_erp_api_credential_status',
+        {
+            p_platform: platform
+        }
+    );
+
+    if (error) {
+        console.error(
+            "failed to fetch platform credential status",
+            readableError(error)
+        );
+
+        return {
+            platform,
+            status: "unavailable",
+            message: "需要运行授权状态 SQL"
+        };
+    }
+
+    const row = Array.isArray(data) ?
+        data[0] :
+        data;
+
+    if (!row) {
+        return {
+            platform,
+            status: "missing",
+            message: "未保存 token"
+        };
+    }
+
+    return {
+        platform: row.platform || platform,
+        status: row.status || "unknown",
+        tokenFingerprint:
+            row.token_fingerprint || "",
+        lastRefreshedAt:
+            row.last_refreshed_at || "",
+        lastUsedAt:
+            row.last_used_at || "",
+        updatedAt:
+            row.updated_at || "",
+        message:
+            row.status === "active" ?
+                "token 已保存" :
+                "token 需要检查"
+    };
+}
+
+function getCurrentHumbirdToken() {
+    return String(
+        localStorage.getItem("factory_token_") || ""
+    ).trim();
+}
+
+async function tokenFingerprint(token) {
+    const digest =
+        await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(token)
+        );
+
+    return [...new Uint8Array(digest)]
+        .map(byte =>
+            byte.toString(16).padStart(2, "0")
+        )
+        .join("")
+        .slice(0, 12);
+}
+
+function shouldSyncToken(status, fingerprint) {
+    if (!fingerprint) return false;
+    if (!status) return true;
+
+    return status.status !== "active" ||
+        status.tokenFingerprint !== fingerprint;
+}
+
+export async function syncCurrentHumbirdToken(
+    updatedBy
+) {
+    const platform = getPlatformFromHostname();
+    const token = getCurrentHumbirdToken();
+
+    if (!token) {
+        return {
+            platform,
+            synced: false,
+            reason: "no_page_token"
+        };
+    }
+
+    const fingerprint =
+        await tokenFingerprint(token);
+    const currentStatus =
+        await getCurrentPlatformCredentialStatus();
+
+    if (!shouldSyncToken(
+        currentStatus,
+        fingerprint
+    )) {
+        return {
+            platform,
+            synced: false,
+            reason: "already_current",
+            status: currentStatus
+        };
+    }
+
+    const { data, error } =
+        await supabase.functions.invoke(
+            "save-humbird-token",
+            {
+                body: {
+                    platform,
+                    token,
+                    updated_by:
+                        updatedBy || "qa-extension"
+                }
+            }
+        );
+
+    if (error) {
+        console.error(
+            "failed to sync humbird token",
+            readableError(error)
+        );
+
+        return {
+            platform,
+            synced: false,
+            reason: "save_failed",
+            status: {
+                platform,
+                status: "unavailable",
+                message: "保存入口未部署"
+            }
+        };
+    }
+
+    return {
+        platform,
+        synced: true,
+        result: data,
+        status:
+            await getCurrentPlatformCredentialStatus()
+    };
+}
+
 
 export async function getUsersByDepartment(
     department
@@ -280,17 +446,76 @@ export async function getUsersByDepartment(
         return usersByDepartmentCache[department];
     }
 
-    const { data, error } = await supabase
+    const jobTitle = String(department || "").trim();
+    let query = supabase
         .from("users")
         .select("name")
-        .eq("department", department)
+        .eq("job_title", jobTitle)
         .order("name");
-
+    let { data, error } = await query;
+    if (error && String(error.message || "").includes("job_title")) {
+        const legacy = await supabase
+            .from("users")
+            .select("name")
+            .eq("department", jobTitle)
+            .order("name");
+        data = legacy.data;
+        error = legacy.error;
+    }
     if (error) {
         console.error(error);
         throw error;
     }
+    usersByDepartmentCache[department] = data || [];
+    return data || [];
+}
 
-    usersByDepartmentCache[department] = data;
-    return data;
+export async function getUsersByProductionDepartment(
+    department
+) {
+    const productionDepartment = String(
+        department || "DTF"
+    ).trim().toUpperCase();
+    const cacheKey = `production:${productionDepartment}`;
+    if (usersByDepartmentCache[cacheKey]) {
+        return usersByDepartmentCache[cacheKey];
+    }
+    const { data, error } = await supabase.rpc(
+        "get_users_by_production_department",
+        { p_department: productionDepartment }
+    );
+
+    if (!error) {
+        usersByDepartmentCache[cacheKey] = data || [];
+        return data || [];
+    }
+
+    const missingRpc =
+        error.code === "PGRST202" ||
+        String(error.message || "").includes(
+            "get_users_by_production_department"
+        );
+    if (!missingRpc) {
+        console.error(error);
+        throw error;
+    }
+
+    // Compatibility before the employee-department migration is deployed.
+    // The legacy column stores the job title, so QA personnel were selected
+    // with department='质检' and implicitly belonged to DTF.
+    if (productionDepartment !== "DTF") {
+        usersByDepartmentCache[cacheKey] = [];
+        return [];
+    }
+    const legacy = await supabase
+        .from("users")
+        .select("name")
+        .eq("department", "质检")
+        .order("name");
+    if (legacy.error) {
+        console.error(legacy.error);
+        throw legacy.error;
+    }
+    usersByDepartmentCache[cacheKey] = legacy.data || [];
+    return legacy.data || [];
 }

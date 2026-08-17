@@ -232,6 +232,73 @@ function renderSwitchSummary(summary = {}) {
     `;
 }
 
+function credentialStatusText(status) {
+    if (!status) return "未检查";
+    if (status.status === "active") return "已保存";
+    if (status.status === "missing") return "未保存";
+    if (status.status === "expired") return "已失效";
+    if (status.status === "error") return "异常";
+    if (status.status === "unavailable") {
+        const message = String(status.message || "");
+
+        if (message.includes("状态 SQL")) {
+            return "状态SQL未部署";
+        }
+
+        if (message.includes("保存入口")) {
+            return "保存入口未部署";
+        }
+
+        return "暂不可用";
+    }
+    return status.status;
+}
+
+function getUserDepartment(user = {}) {
+    const departments = Array.isArray(user.departments) ?
+        user.departments :
+        [user.production_department || "DTF"];
+    return departments
+        .map(value => String(value || "").trim())
+        .filter(Boolean)
+        .join(" / ") || "DTF";
+}
+
+function credentialStatusColor(status) {
+    if (!status) return "#eef7ff";
+    if (status.status === "active") return "#003366";
+    if (status.status === "missing") return "#7a4b00";
+    return "#7f1d1d";
+}
+
+function renderCredentialStatus(status = {}) {
+    const fingerprint = status.tokenFingerprint ?
+        ` / ${escapeHtml(status.tokenFingerprint)}` :
+        "";
+
+    return `
+        <div id="qa-credential-status" style="
+            margin-bottom:6px;
+            font-size:12px;
+            line-height:1.45;
+        ">
+            蜂鸟授权:
+            <span style="color:#003366;font-weight:700;">
+                ${escapeHtml(status.platform || "当前平台")}
+            </span>
+            <span style="
+                color:${credentialStatusColor(status)};
+                font-weight:700;
+            ">
+                ${credentialStatusText(status)}
+            </span>
+            <span style="color:#eef7ff;">
+                ${fingerprint}
+            </span>
+        </div>
+    `;
+}
+
 export function getBadge() {
     let badge =
         document.getElementById('qa-active-badge');
@@ -287,6 +354,7 @@ export async function renderLoggedIn(
     platformSummary = [],
     rankings = {},
     switchSummary = {},
+    credentialStatus = {},
 ) {
     badge.innerHTML = `
         <div style="
@@ -298,7 +366,16 @@ export async function renderLoggedIn(
             <span>
                 质检插件启动中 -
                 <span style="color:#003366;">
-                    ${user.name}
+                    ${escapeHtml(user.name)}
+                </span>
+                <span style="
+                    color:#003366;
+                    font-size:12px;
+                    font-weight:700;
+                    margin-left:6px;
+                    white-space:nowrap;
+                ">
+                    部门: ${escapeHtml(getUserDepartment(user))}
                 </span>
             </span>
 
@@ -313,6 +390,8 @@ export async function renderLoggedIn(
                 ${count}
             </span>
         </div>
+
+        ${renderCredentialStatus(credentialStatus)}
 
         <div style="
             margin-bottom:8px;

@@ -1,6 +1,8 @@
 
 import {
     buildSwitchSummary,
+    getCurrentPlatformCredentialStatus,
+    syncCurrentHumbirdToken,
     getTodayBarcodeCountByUser,
     getTodayPlatformDashboardByUser
 } from '../db/barcodeRepo.js';
@@ -422,6 +424,35 @@ function incrementCurrentHour(platform) {
     );
 }
 
+function emptyDashboard() {
+    return {
+        platformSummary: [],
+        rankings: {
+            haloo: [],
+            other: []
+        },
+        hourlyRows: [],
+        switchSummary: {
+            switchCount: 0,
+            path: "暂无",
+            risk: "暂无",
+            steps: []
+        }
+    };
+}
+
+function readableError(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    try {
+        return JSON.stringify(error);
+    } catch (_jsonError) {
+        return String(error);
+    }
+}
+
 function listenForSharedState() {
     if (isListeningForSharedState) return;
 
@@ -488,11 +519,42 @@ export async function showActiveBadge() {
 
     currentUserName = user.name;
 
-    const [count, dashboard] =
-        await Promise.all([
-            getTodayBarcodeCountByUser(),
-            getTodayPlatformDashboardByUser()
-        ]);
+    let count = 0;
+    let dashboard = emptyDashboard();
+    let credentialStatus = {};
+
+    try {
+        count = await getTodayBarcodeCountByUser();
+    } catch (error) {
+        console.error(
+            "QA Barcode Extension failed to fetch scan count:",
+            readableError(error)
+        );
+    }
+
+    try {
+        dashboard =
+            await getTodayPlatformDashboardByUser();
+    } catch (error) {
+        console.error(
+            "QA Barcode Extension failed to fetch dashboard:",
+            readableError(error)
+        );
+    }
+
+    try {
+        const syncResult =
+            await syncCurrentHumbirdToken(user.name);
+        credentialStatus =
+            syncResult.status ||
+            await getCurrentPlatformCredentialStatus();
+    } catch (error) {
+        console.error(
+            "QA Barcode Extension failed to fetch credential status:",
+            readableError(error)
+        );
+    }
+
     const {
         platformSummary,
         rankings,
@@ -516,13 +578,14 @@ export async function showActiveBadge() {
     if (await getSharedBadgeMinimized()) {
         renderMinimized(badge);
     } else {
-        renderLoggedIn(
+        await renderLoggedIn(
             badge,
             user,
             count,
             platformSummary,
             rankings,
             switchSummary,
+            credentialStatus,
             
         );
     }

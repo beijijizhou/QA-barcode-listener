@@ -14,11 +14,19 @@ const month = dateParts.find(part => part.type === "month").value;
 const day = dateParts.find(part => part.type === "day").value;
 const dateVersionPrefix = `1.${month}.${day}`;
 const currentVersion = String(manifest.version || "");
+const versionParts = currentVersion.split(".");
 
-manifest.version =
-    currentVersion.startsWith(`${dateVersionPrefix}.`) ?
-        currentVersion :
-        dateVersionPrefix;
+if (currentVersion === dateVersionPrefix) {
+    manifest.version = `${dateVersionPrefix}.1`;
+} else if (currentVersion.startsWith(`${dateVersionPrefix}.`)) {
+    const releaseNumber =
+        Number.parseInt(versionParts[3], 10) || 0;
+
+    manifest.version =
+        `${dateVersionPrefix}.${releaseNumber + 1}`;
+} else {
+    manifest.version = dateVersionPrefix;
+}
 
 fs.writeFileSync(
     manifestPath,

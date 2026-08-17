@@ -15,7 +15,7 @@ export async function requireLogin() {
     // };
     //const user = await findUser();
 
-    let user = await getSharedCurrentUser() 
+    let user = await getSharedCurrentUser();
     
     if (user) {
         return user;
@@ -23,7 +23,19 @@ export async function requireLogin() {
 
     if (!user) {
         const name = prompt('请输入用户名');
+        if (!name) {
+            alert('请先登录后再质检');
+            await setSharedCurrentUser(null);
+            return null;
+        }
+
         const password = prompt('请输入密码');
+        if (!password) {
+            alert('请先登录后再质检');
+            await setSharedCurrentUser(null);
+            return null;
+        }
+
         user = { name, password };
     }
     // const testuser = 
