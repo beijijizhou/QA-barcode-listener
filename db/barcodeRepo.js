@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js';
 import { getPlatformFromHostname } from '../core/platform.js';
+import {
+    getPageProductionDepartment,
+    isDtfDepartment
+} from '../core/department.js';
 
 const usersByDepartmentCache = {};
 
@@ -30,7 +34,32 @@ function isHalooPlatform(platform) {
         .toLowerCase() === "haloo";
 }
 
-function buildRankings(rows) {
+function parseCurrentUser() {
+    return JSON.parse(
+        localStorage.getItem('currentUser') || "null"
+    ) || {};
+}
+
+function normalizeProductionDepartment(value) {
+    return String(value || "DTF")
+        .trim()
+        .toUpperCase();
+}
+
+function isRowForDepartment(row, department) {
+    if (!Object.prototype.hasOwnProperty.call(
+        row,
+        "production_department"
+    )) {
+        return true;
+    }
+
+    return normalizeProductionDepartment(
+        row.production_department
+    ) === normalizeProductionDepartment(department);
+}
+
+function buildRankings(rows, department = "DTF") {
     const totalsByPerson = new Map();
 
     rows.forEach(row => {
@@ -42,10 +71,13 @@ function buildRankings(rows) {
         const current =
             totalsByPerson.get(person) || {
                 name: person,
+                total: 0,
                 haloo: 0,
                 other: 0
             };
         const count = Number(row.scan_count) || 0;
+
+        current.total += count;
 
         if (isHalooPlatform(row.platform)) {
             current.haloo += count;
@@ -68,8 +100,10 @@ function buildRankings(rows) {
     }
 
     return {
+        total: rankByField("total"),
         haloo: rankByField("haloo"),
-        other: rankByField("other")
+        other: rankByField("other"),
+        department
     };
 }
 
@@ -175,17 +209,25 @@ export function buildSwitchSummary(hourlyRows = []) {
 export async function saveBarcode(code) {
   
     const now = new Date().toISOString();
-    const user = JSON.parse(localStorage.getItem('currentUser')).name;
-    const hotstampUser = localStorage.getItem(
-        "qa_hotstamp_user"
-    );
+    const currentUser = parseCurrentUser();
+    const user = currentUser.name;
+    const department =
+        getPageProductionDepartment(currentUser);
+    const hotstampUser = isDtfDepartment(department) ?
+        localStorage.getItem("qa_hotstamp_user") :
+        null;
 
     const scanPayload = {
         barcode: code,
         scanned_by: user,
         scanned_at: now,
         hotstamp_by: hotstampUser,
-        platform: getPlatformFromHostname()
+        platform: getPlatformFromHostname(
+            undefined,
+            department,
+            code
+        ),
+        production_department: department
     };
 
     const { error } = await supabase
@@ -193,7 +235,8 @@ export async function saveBarcode(code) {
         .upsert(
             scanPayload,
             {
-                onConflict: 'barcode'
+                onConflict:
+                    'barcode,production_department'
             }
         );
 
@@ -202,14 +245,16 @@ export async function saveBarcode(code) {
 
 
 export async function getTodayBarcodeCountByUser() {
-    const user = JSON.parse(
-        localStorage.getItem('currentUser')
-    ).name;
+    const currentUser = parseCurrentUser();
+    const user = currentUser.name;
+    const department =
+        getPageProductionDepartment(currentUser);
 
     const { data, error } = await supabase.rpc(
         'get_today_barcode_count_by_user',
         {
-            p_user: user
+            p_user: user,
+            p_department: department
         }
     );
 
@@ -221,9 +266,10 @@ export async function getTodayBarcodeCountByUser() {
 }
 
 export async function getTodayPlatformDashboardByUser() {
-    const user = JSON.parse(
-        localStorage.getItem('currentUser')
-    ).name;
+    const currentUser = parseCurrentUser();
+    const user = currentUser.name;
+    const department =
+        getPageProductionDepartment(currentUser);
     const targetDate = getTodayInNewYork();
     const [
         platformResult,
@@ -233,14 +279,16 @@ export async function getTodayPlatformDashboardByUser() {
             'get_daily_qa_person_platform_summary',
             {
                 target_date: targetDate,
-                snapshot_at: null
+                snapshot_at: null,
+                p_department: department
             }
         ),
         supabase.rpc(
             'get_daily_qa_hourly_person_client_summary',
             {
                 target_date: targetDate,
-                snapshot_at: null
+                snapshot_at: null,
+                p_department: department
             }
         )
     ]);
@@ -261,14 +309,22 @@ export async function getTodayPlatformDashboardByUser() {
         throw hourlyResult.error;
     }
 
-    const rows = platformResult.data || [];
-    const hourlyRows =
-        normalizeHourlyRows(
-            hourlyResult.data,
-            user
+    const rows = (platformResult.data || [])
+        .filter(row =>
+            isRowForDepartment(row, department)
         );
+    const hourlyRows =
+        isDtfDepartment(department) ?
+            normalizeHourlyRows(
+                (hourlyResult.data || []).filter(row =>
+                    isRowForDepartment(row, department)
+                ),
+                user
+            ) :
+            [];
 
     return {
+        department,
         platformSummary: rows
             .filter(row => row.person === user)
             .map(row => ({
@@ -278,16 +334,26 @@ export async function getTodayPlatformDashboardByUser() {
                     Number(row.scan_count) || 0
             }))
             .sort((a, b) => b.count - a.count),
-        rankings: buildRankings(rows),
+        rankings: buildRankings(rows, department),
         hourlyRows,
-        switchSummary: buildSwitchSummary(
-            hourlyRows
-        )
+        switchSummary: isDtfDepartment(department) ?
+            buildSwitchSummary(hourlyRows) :
+            {
+                switchCount: 0,
+                path: "UV 不区分 Haloo / 小平台",
+                risk: "不适用",
+                steps: []
+            }
     };
 }
 
 export async function getCurrentPlatformCredentialStatus() {
-    const platform = getPlatformFromHostname();
+    const department =
+        getPageProductionDepartment(parseCurrentUser());
+    const platform = getPlatformFromHostname(
+        undefined,
+        department
+    );
     const { data, error } = await supabase.rpc(
         'get_erp_api_credential_status',
         {
@@ -370,7 +436,12 @@ function shouldSyncToken(status, fingerprint) {
 export async function syncCurrentHumbirdToken(
     updatedBy
 ) {
-    const platform = getPlatformFromHostname();
+    const department =
+        getPageProductionDepartment(parseCurrentUser());
+    const platform = getPlatformFromHostname(
+        undefined,
+        department
+    );
     const token = getCurrentHumbirdToken();
 
     if (!token) {
@@ -439,83 +510,36 @@ export async function syncCurrentHumbirdToken(
 }
 
 
-export async function getUsersByDepartment(
-    department
-) {
-    if (usersByDepartmentCache[department]) {
-        return usersByDepartmentCache[department];
-    }
-
-    const jobTitle = String(department || "").trim();
-    let query = supabase
-        .from("users")
-        .select("name")
-        .eq("job_title", jobTitle)
-        .order("name");
-    let { data, error } = await query;
-    if (error && String(error.message || "").includes("job_title")) {
-        const legacy = await supabase
-            .from("users")
-            .select("name")
-            .eq("department", jobTitle)
-            .order("name");
-        data = legacy.data;
-        error = legacy.error;
-    }
-    if (error) {
-        console.error(error);
-        throw error;
-    }
-    usersByDepartmentCache[department] = data || [];
-    return data || [];
-}
-
 export async function getUsersByProductionDepartment(
-    department
+    department,
+    options = {}
 ) {
     const productionDepartment = String(
         department || "DTF"
     ).trim().toUpperCase();
     const cacheKey = `production:${productionDepartment}`;
-    if (usersByDepartmentCache[cacheKey]) {
+
+    if (
+        !options.forceRefresh &&
+        usersByDepartmentCache[cacheKey]?.length
+    ) {
         return usersByDepartmentCache[cacheKey];
     }
+
     const { data, error } = await supabase.rpc(
         "get_users_by_production_department",
         { p_department: productionDepartment }
     );
 
-    if (!error) {
-        usersByDepartmentCache[cacheKey] = data || [];
-        return data || [];
-    }
-
-    const missingRpc =
-        error.code === "PGRST202" ||
-        String(error.message || "").includes(
-            "get_users_by_production_department"
-        );
-    if (!missingRpc) {
+    if (error) {
         console.error(error);
         throw error;
     }
+    if (data?.length) {
+        usersByDepartmentCache[cacheKey] = data;
+    } else {
+        delete usersByDepartmentCache[cacheKey];
+    }
 
-    // Compatibility before the employee-department migration is deployed.
-    // The legacy column stores the job title, so QA personnel were selected
-    // with department='质检' and implicitly belonged to DTF.
-    if (productionDepartment !== "DTF") {
-        usersByDepartmentCache[cacheKey] = [];
-        return [];
-    }
-    const legacy = await supabase
-        .from("users")
-        .select("name")
-        .eq("department", "质检")
-        .order("name");
-    if (legacy.error) {
-        console.error(legacy.error);
-        throw legacy.error;
-    }
-    usersByDepartmentCache[cacheKey] = legacy.data || [];
-    return legacy.data || [];
+    return data || [];
 }

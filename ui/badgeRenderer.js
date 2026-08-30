@@ -1,7 +1,16 @@
 import { requireLogin,logout } from "../auth/login";
 import { showActiveBadge } from "./badge";
 import { renderHotstampDropdown } from "./hotstampDropdown";
-import { setSharedBadgeMinimized } from "../storage/sharedState";
+import {
+    getBadgePositionFromPage,
+    setSharedBadgeMinimized,
+    setSharedBadgePosition
+} from "../storage/sharedState";
+import {
+    getPageProductionDepartment,
+    getUserJobTitle,
+    isDtfDepartment
+} from "../core/department.js";
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -10,6 +19,187 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function ensureBadgeStyle() {
+    if (document.getElementById("qa-badge-style")) {
+        return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "qa-badge-style";
+    style.textContent = `
+        #qa-active-badge,
+        #qa-active-badge * {
+            box-sizing: border-box !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            letter-spacing: 0 !important;
+        }
+
+        #qa-active-badge button {
+            background: #ffe038 !important;
+            color: #003366 !important;
+            border: 1px solid #f58216 !important;
+            border-radius: 6px !important;
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            line-height: 1.2 !important;
+            cursor: pointer !important;
+        }
+
+        #qa-active-badge button:hover {
+            background: #fff09a !important;
+        }
+
+        #qa-badge-drag-handle {
+            cursor: move !important;
+        }
+
+        #qa-hotstamp-wrapper {
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            margin-top: 8px !important;
+            padding-top: 6px !important;
+            border-top: 1px solid rgba(245, 130, 22, 0.45) !important;
+            color: #003366 !important;
+            font-size: 12px !important;
+        }
+
+        #qa-hotstamp-wrapper label {
+            color: #003366 !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
+        }
+
+        #qa-hotstamp-user {
+            min-width: 116px !important;
+            max-width: 150px !important;
+            height: 24px !important;
+            color: #003366 !important;
+            background: #ffffff !important;
+            border: 1px solid #f58216 !important;
+            border-radius: 6px !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+        }
+
+        #qa-action-row {
+            display: flex !important;
+            justify-content: flex-end !important;
+            margin-top: 8px !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function clamp(value, min, max) {
+    return Math.min(
+        Math.max(value, min),
+        Math.max(min, max)
+    );
+}
+
+function normalizeBadgePosition(position, badge) {
+    if (!position) return null;
+
+    const rect = badge.getBoundingClientRect();
+    const width = rect.width || 280;
+    const height = rect.height || 80;
+
+    return {
+        left: clamp(
+            Number(position.left) || 0,
+            8,
+            window.innerWidth - width - 8
+        ),
+        top: clamp(
+            Number(position.top) || 0,
+            8,
+            window.innerHeight - height - 8
+        )
+    };
+}
+
+export function applyBadgePosition(position) {
+    const badge =
+        document.getElementById('qa-active-badge');
+
+    if (!badge) return;
+
+    const normalized =
+        normalizeBadgePosition(position, badge);
+
+    if (!normalized) return;
+
+    Object.assign(badge.style, {
+        left: `${normalized.left}px`,
+        top: `${normalized.top}px`,
+        right: 'auto',
+        bottom: 'auto'
+    });
+}
+
+function isInteractiveElement(element) {
+    return Boolean(
+        element.closest(
+            'button,select,input,textarea,a,option'
+        )
+    );
+}
+
+function enableBadgeDragging(badge) {
+    if (badge.dataset.dragEnabled === "true") {
+        return;
+    }
+
+    badge.addEventListener("pointerdown", event => {
+        if (
+            event.button !== 0 ||
+            isInteractiveElement(event.target)
+        ) {
+            return;
+        }
+
+        const rect = badge.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+
+        badge.setPointerCapture?.(event.pointerId);
+        badge.style.cursor = "move";
+
+        const move = moveEvent => {
+            const nextPosition =
+                normalizeBadgePosition(
+                    {
+                        left: moveEvent.clientX - offsetX,
+                        top: moveEvent.clientY - offsetY
+                    },
+                    badge
+                );
+
+            applyBadgePosition(nextPosition);
+        };
+
+        const stop = upEvent => {
+            badge.releasePointerCapture?.(upEvent.pointerId);
+            badge.style.cursor = "";
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", stop);
+
+            const finalRect = badge.getBoundingClientRect();
+            setSharedBadgePosition({
+                left: Math.round(finalRect.left),
+                top: Math.round(finalRect.top)
+            });
+        };
+
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", stop);
+    });
+
+    badge.dataset.dragEnabled = "true";
 }
 
 function renderPlatformSummary(platformSummary = []) {
@@ -105,8 +295,29 @@ function renderRankingList(
 
 function renderRankings(
     rankings = {},
-    currentUserName = ""
+    currentUserName = "",
+    department = "DTF"
 ) {
+    if (!isDtfDepartment(department)) {
+        return `
+            <div id="qa-rankings">
+                <div style="
+                    font-size:12px;
+                    margin-bottom:4px;
+                    color:#eef7ff;
+                ">
+                    质检排名
+                </div>
+                <div id="qa-total-ranking">
+                    ${renderRankingList(
+                        rankings.total,
+                        currentUserName
+                    )}
+                </div>
+            </div>
+        `;
+    }
+
     return `
         <div id="qa-rankings" style="
             display:grid;
@@ -232,6 +443,52 @@ function renderSwitchSummary(summary = {}) {
     `;
 }
 
+function renderWorkflowSection(
+    department,
+    switchSummary
+) {
+    if (!isDtfDepartment(department)) {
+        return "";
+    }
+
+    return `
+        <div style="
+            margin-bottom:8px;
+            padding-top:6px;
+            border-top:1px solid rgba(255,255,255,0.35);
+        ">
+            <div style="
+                font-size:12px;
+                margin-bottom:4px;
+                color:#eef7ff;
+            ">
+                今日流程
+            </div>
+            ${renderSwitchSummary(switchSummary)}
+        </div>
+    `;
+}
+
+function renderRankingSection(
+    rankings,
+    user,
+    department
+) {
+    return `
+        <div style="
+            margin-bottom:8px;
+            padding-top:6px;
+            border-top:1px solid rgba(255,255,255,0.35);
+        ">
+            ${renderRankings(
+                rankings,
+                user.name,
+                department
+            )}
+        </div>
+    `;
+}
+
 function credentialStatusText(status) {
     if (!status) return "未检查";
     if (status.status === "active") return "已保存";
@@ -255,13 +512,33 @@ function credentialStatusText(status) {
 }
 
 function getUserDepartment(user = {}) {
-    const departments = Array.isArray(user.departments) ?
-        user.departments :
-        [user.production_department || "DTF"];
-    return departments
-        .map(value => String(value || "").trim())
-        .filter(Boolean)
-        .join(" / ") || "DTF";
+    return getPageProductionDepartment(user);
+}
+
+function renderUserMeta(user = {}) {
+    const department = getUserDepartment(user);
+    const jobTitle = getUserJobTitle(user);
+
+    return `
+        <span style="
+            color:#003366;
+            font-size:12px;
+            font-weight:700;
+            margin-left:6px;
+            white-space:nowrap;
+        ">
+            岗位: ${escapeHtml(jobTitle)}
+        </span>
+        <span style="
+            color:#003366;
+            font-size:12px;
+            font-weight:700;
+            margin-left:6px;
+            white-space:nowrap;
+        ">
+            部门: ${escapeHtml(department)}
+        </span>
+    `;
 }
 
 function credentialStatusColor(status) {
@@ -272,6 +549,8 @@ function credentialStatusColor(status) {
 }
 
 function renderCredentialStatus(status = {}) {
+    if (status.hidden) return "";
+
     const fingerprint = status.tokenFingerprint ?
         ` / ${escapeHtml(status.tokenFingerprint)}` :
         "";
@@ -299,7 +578,19 @@ function renderCredentialStatus(status = {}) {
     `;
 }
 
+export function updateCredentialStatus(status = {}) {
+    const credentialEl =
+        document.getElementById("qa-credential-status");
+
+    if (!credentialEl) return;
+
+    credentialEl.outerHTML =
+        renderCredentialStatus(status);
+}
+
 export function getBadge() {
+    ensureBadgeStyle();
+
     let badge =
         document.getElementById('qa-active-badge');
 
@@ -310,15 +601,24 @@ export function getBadge() {
     }
 
     Object.assign(badge.style, {
+        display: 'block',
         position: 'fixed',
         bottom: '50px',
         right: '50px',
-        background: '#28a745',
+        background: '#46aaaa',
         color: 'white',
         padding: '8px 12px',
         borderRadius: '8px',
+        border: '2px solid #f58216',
+        boxShadow: '0 8px 24px rgba(0, 51, 102, 0.24)',
+        minWidth: '280px',
+        maxWidth: '340px',
+        width: 'auto',
         zIndex: '999999'
     });
+
+    enableBadgeDragging(badge);
+    applyBadgePosition(getBadgePositionFromPage());
 
     return badge;
 }
@@ -356,27 +656,21 @@ export async function renderLoggedIn(
     switchSummary = {},
     credentialStatus = {},
 ) {
+    const department = getUserDepartment(user);
+
     badge.innerHTML = `
         <div style="
             display:flex;
             justify-content:space-between;
             align-items:center;
             margin-bottom:6px;
-        ">
+        " id="qa-badge-drag-handle">
             <span>
                 质检插件启动中 -
                 <span style="color:#003366;">
                     ${escapeHtml(user.name)}
                 </span>
-                <span style="
-                    color:#003366;
-                    font-size:12px;
-                    font-weight:700;
-                    margin-left:6px;
-                    white-space:nowrap;
-                ">
-                    部门: ${escapeHtml(getUserDepartment(user))}
-                </span>
+                ${renderUserMeta(user)}
             </span>
 
             <button id="qa-minimize-btn">
@@ -412,40 +706,39 @@ export async function renderLoggedIn(
             </div>
         </div>
 
-        <div style="
-            margin-bottom:8px;
-            padding-top:6px;
-            border-top:1px solid rgba(255,255,255,0.35);
-        ">
-            ${renderRankings(rankings, user.name)}
-        </div>
+        ${renderRankingSection(
+            rankings,
+            user,
+            department
+        )}
 
-        <div style="
-            margin-bottom:8px;
-            padding-top:6px;
-            border-top:1px solid rgba(255,255,255,0.35);
-        ">
-            <div style="
-                font-size:12px;
-                margin-bottom:4px;
-                color:#eef7ff;
-            ">
-                今日流程
-            </div>
-            ${renderSwitchSummary(switchSummary)}
-        </div>
-
-        <button id="qa-logout-btn">
-            退出登录
-        </button>
+        ${renderWorkflowSection(
+            department,
+            switchSummary
+        )}
     `;
     
     badge
         .querySelector('#qa-minimize-btn')
         .onclick = async () => {
-            await setSharedBadgeMinimized(true);
             renderMinimized(badge);
+            await setSharedBadgeMinimized(true);
         };
+
+    if (isDtfDepartment(department)) {
+        await renderHotstampDropdown(badge);
+    }
+
+    badge.insertAdjacentHTML(
+        "beforeend",
+        `
+            <div id="qa-action-row">
+                <button id="qa-logout-btn">
+                    退出登录
+                </button>
+            </div>
+        `
+    );
 
     badge
         .querySelector('#qa-logout-btn')
@@ -453,10 +746,19 @@ export async function renderLoggedIn(
             await logout();
             await showActiveBadge();
         };
-    await renderHotstampDropdown(badge);
 }
 
 export function renderMinimized(badge) {
+    Object.assign(badge.style, {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '6px',
+        minWidth: 'auto',
+        maxWidth: 'none',
+        width: 'auto'
+    });
+
     badge.innerHTML = `
         <button id="qa-expand-btn">
             展开
@@ -470,8 +772,8 @@ export function renderMinimized(badge) {
     badge
         .querySelector('#qa-expand-btn')
         .onclick = async () => {
+            showActiveBadge({ forceExpanded: true });
             await setSharedBadgeMinimized(false);
-            showActiveBadge();
         };
 
     badge

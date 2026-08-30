@@ -31,7 +31,7 @@ export async function processBarcode(code) {
 
         await saveBarcode(barcode);
         incrementTodayScanCount(user);
-        incrementTodayPlatformSummary(user);
+        incrementTodayPlatformSummary(user, barcode);
 
     } catch (err) {
 

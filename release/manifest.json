@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Barcode Extension",
-  "version": "1.8.16.1",
+  "version": "1.8.26.1",
   "permissions": [
     "storage"
   ],
@@ -18,6 +18,8 @@
         "https://www.pixelin.cc/*",
         "http://us.qcpod.19diy.com/*",
         "https://factory.s2bdiy.com/*",
+        "https://overseasfactory.s2bdiy.com/*",
+        "https://factory.sdsdiy.com/*",
         "https://aipod.himytool.com/*",
         "https://example.com/*",
         "https://fangguo.com/*",
@@ -28,6 +30,7 @@
         "https://tshirtus.riin.com/*",
         "https://factory.globalpod.cn/*",
         "https://gc.toyitool.com/*",
+        "http://erp.sellersbot.com/*",
         "http://gmanage.sdspod.com/*",
         "https://factory.globalpod.cn/*",
         "https://www.shineink.cn/*",

@@ -10,13 +10,8 @@ export function registerPhysicalScanner() {
 
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-            const code = buffer.trim();
+            processBarcode(buffer);
             buffer = '';
-
-            if (code) {
-                processBarcode(code);
-            }
-
         } else if (event.key.length === 1) {
             buffer += event.key;
         }

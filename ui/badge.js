@@ -7,19 +7,23 @@ import {
     getTodayPlatformDashboardByUser
 } from '../db/barcodeRepo.js';
 import {
+    applyBadgePosition,
     renderLoggedIn,
     getBadge,
     renderLoggedOut,
-    renderMinimized
+    renderMinimized,
+    updateCredentialStatus
 } from './badgeRenderer.js';
 import {
     getSharedBadgeMinimized,
+    getSharedBadgePosition,
     getSharedCurrentUser,
     getTodayCountKey,
     getTodayPlatformSummaryKey,
     getTodayRankingsKey,
     getTodaySwitchSummaryKey,
     isBadgeMinimizedKey,
+    isBadgePositionKey,
     isCurrentUserKey,
     isTodayCountKey,
     isTodayPlatformSummaryKey,
@@ -33,6 +37,10 @@ import {
     setSharedTodaySwitchSummary
 } from '../storage/sharedState.js';
 import { getPlatformFromHostname } from '../core/platform.js';
+import {
+    getPageProductionDepartment,
+    isDtfDepartment
+} from '../core/department.js';
 
 let activeCountStorageKey = null;
 let activePlatformSummaryStorageKey = null;
@@ -40,14 +48,38 @@ let activeRankingsStorageKey = null;
 let activeSwitchSummaryStorageKey = null;
 let isListeningForSharedState = false;
 let currentUserName = "";
+let currentDepartment = "DTF";
 let currentCount = 0;
 let currentPlatformSummary = [];
 let currentHourlyRows = [];
 let currentSwitchSummary = {};
 let currentRankings = {
+    total: [],
     haloo: [],
     other: []
 };
+
+function resetVisibleDashboardState(department = "DTF") {
+    currentCount = 0;
+    currentPlatformSummary = [];
+    currentHourlyRows = [];
+    currentSwitchSummary = {
+        switchCount: 0,
+        path: isDtfDepartment(department) ?
+            "暂无" :
+            "UV 不区分 Haloo / 小平台",
+        risk: isDtfDepartment(department) ?
+            "暂无" :
+            "不适用",
+        steps: []
+    };
+    currentRankings = {
+        total: [],
+        haloo: [],
+        other: [],
+        department
+    };
+}
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -204,14 +236,29 @@ function renderRankingList(
 
 function normalizeRankings(rankings = {}) {
     return {
+        total: rankings.total || [],
         haloo: rankings.haloo || [],
-        other: rankings.other || []
+        other: rankings.other || [],
+        department:
+            rankings.department || currentDepartment
     };
+}
+
+function sumPlatformSummary(summary = []) {
+    return summary.reduce(
+        (total, row) =>
+            total + (Number(row.count) || 0),
+        0
+    );
 }
 
 function renderVisibleRankings(rankings = {}) {
     currentRankings = normalizeRankings(rankings);
 
+    renderRankingList(
+        document.getElementById('qa-total-ranking'),
+        currentRankings.total
+    );
     renderRankingList(
         document.getElementById('qa-haloo-ranking'),
         currentRankings.haloo
@@ -428,6 +475,7 @@ function emptyDashboard() {
     return {
         platformSummary: [],
         rankings: {
+            total: [],
             haloo: [],
             other: []
         },
@@ -473,6 +521,11 @@ function listenForSharedState() {
             return;
         }
 
+        if (isBadgePositionKey(key)) {
+            applyBadgePosition(value);
+            return;
+        }
+
         if (
             isTodayCountKey(key) &&
             key === activeCountStorageKey
@@ -505,26 +558,25 @@ function listenForSharedState() {
     isListeningForSharedState = true;
 }
 
-export async function showActiveBadge() {
-    const badge = getBadge();
+function isCurrentBadgeUser(user) {
+    return currentUserName === user.name &&
+        currentDepartment ===
+            getPageProductionDepartment(user);
+}
 
-    listenForSharedState();
-
-    const user = await getSharedCurrentUser();
-
-    if (!user) {
-        await renderLoggedOut(badge);
-        return;
-    }
-
-    currentUserName = user.name;
-
-    let count = 0;
-    let dashboard = emptyDashboard();
-    let credentialStatus = {};
-
+async function refreshBadgeData(user) {
     try {
-        count = await getTodayBarcodeCountByUser();
+        const count =
+            await getTodayBarcodeCountByUser();
+
+        if (!isCurrentBadgeUser(user)) return;
+
+        currentCount = Number(count) || 0;
+        setVisibleCount(currentCount);
+        await setSharedTodayCount(
+            user,
+            currentCount
+        );
     } catch (error) {
         console.error(
             "QA Barcode Extension failed to fetch scan count:",
@@ -533,8 +585,54 @@ export async function showActiveBadge() {
     }
 
     try {
-        dashboard =
+        const dashboard =
             await getTodayPlatformDashboardByUser();
+
+        if (!isCurrentBadgeUser(user)) return;
+
+        const {
+            platformSummary,
+            rankings,
+            hourlyRows,
+            switchSummary
+        } = dashboard;
+
+        currentPlatformSummary = platformSummary || [];
+        currentHourlyRows = hourlyRows || [];
+        currentSwitchSummary = switchSummary || {};
+        currentRankings = normalizeRankings(rankings);
+
+        if (!currentCount) {
+            currentCount = sumPlatformSummary(
+                currentPlatformSummary
+            );
+            setVisibleCount(currentCount);
+            await setSharedTodayCount(
+                user,
+                currentCount
+            );
+        }
+
+        renderVisiblePlatformSummary(
+            currentPlatformSummary
+        );
+        renderVisibleRankings(currentRankings);
+        renderVisibleSwitchSummary(
+            currentSwitchSummary
+        );
+
+        await setSharedTodayPlatformSummary(
+            user,
+            currentPlatformSummary
+        );
+        await setSharedTodayRankings(
+            user,
+            currentRankings
+        );
+        await setSharedTodaySwitchSummary(
+            user,
+            currentSwitchSummary
+        );
     } catch (error) {
         console.error(
             "QA Barcode Extension failed to fetch dashboard:",
@@ -543,70 +641,107 @@ export async function showActiveBadge() {
     }
 
     try {
+        if (
+            !isDtfDepartment(currentDepartment) ||
+            !isCurrentBadgeUser(user)
+        ) {
+            return;
+        }
+
         const syncResult =
             await syncCurrentHumbirdToken(user.name);
-        credentialStatus =
+
+        if (!isCurrentBadgeUser(user)) return;
+
+        updateCredentialStatus(
             syncResult.status ||
-            await getCurrentPlatformCredentialStatus();
+            await getCurrentPlatformCredentialStatus()
+        );
     } catch (error) {
         console.error(
             "QA Barcode Extension failed to fetch credential status:",
             readableError(error)
         );
     }
+}
 
-    const {
-        platformSummary,
-        rankings,
-        hourlyRows,
-        switchSummary
-    } = dashboard;
-    currentCount = Number(count) || 0;
-    currentPlatformSummary = platformSummary;
-    currentHourlyRows = hourlyRows || [];
-    currentSwitchSummary = switchSummary || {};
-    activeCountStorageKey = getTodayCountKey(user);
-    activePlatformSummaryStorageKey =
-        getTodayPlatformSummaryKey(user);
-    activeRankingsStorageKey =
-        getTodayRankingsKey(user);
-    activeSwitchSummaryStorageKey =
-        getTodaySwitchSummaryKey(user);
-    currentRankings = normalizeRankings(rankings);
-    
-    
-    if (await getSharedBadgeMinimized()) {
-        renderMinimized(badge);
-    } else {
-        await renderLoggedIn(
-            badge,
-            user,
-            count,
-            platformSummary,
-            rankings,
-            switchSummary,
-            credentialStatus,
-            
-        );
+export async function showActiveBadge(options = {}) {
+    const badge = getBadge();
+
+    listenForSharedState();
+    getSharedBadgePosition()
+        .then(applyBadgePosition)
+        .catch(error => {
+            console.error(
+                "QA Barcode Extension failed to apply badge position:",
+                readableError(error)
+            );
+        });
+
+    const user = await getSharedCurrentUser();
+
+    if (!user) {
+        await renderLoggedOut(badge);
+        return;
     }
 
-    await setSharedTodayCount(
+    const nextDepartment =
+        getPageProductionDepartment(user);
+    const nextCountStorageKey = getTodayCountKey(user);
+    const nextPlatformSummaryStorageKey =
+        getTodayPlatformSummaryKey(user);
+    const nextRankingsStorageKey =
+        getTodayRankingsKey(user);
+    const nextSwitchSummaryStorageKey =
+        getTodaySwitchSummaryKey(user);
+    const isSameDashboard =
+        currentUserName === user.name &&
+        currentDepartment === nextDepartment &&
+        activeCountStorageKey === nextCountStorageKey &&
+        activePlatformSummaryStorageKey ===
+            nextPlatformSummaryStorageKey &&
+        activeRankingsStorageKey === nextRankingsStorageKey &&
+        activeSwitchSummaryStorageKey ===
+            nextSwitchSummaryStorageKey;
+
+    currentUserName = user.name;
+    currentDepartment = nextDepartment;
+    activeCountStorageKey = nextCountStorageKey;
+    activePlatformSummaryStorageKey =
+        nextPlatformSummaryStorageKey;
+    activeRankingsStorageKey = nextRankingsStorageKey;
+    activeSwitchSummaryStorageKey =
+        nextSwitchSummaryStorageKey;
+
+    if (!isSameDashboard) {
+        resetVisibleDashboardState(currentDepartment);
+    }
+
+    const isMinimized = options.forceExpanded ?
+        false :
+        await getSharedBadgeMinimized();
+
+    if (isMinimized) {
+        renderMinimized(badge);
+        return;
+    }
+
+    const credentialStatus =
+        isDtfDepartment(currentDepartment) ?
+            {} :
+            { hidden: true };
+
+    await renderLoggedIn(
+        badge,
         user,
-        count
+        currentCount,
+        currentPlatformSummary,
+        currentRankings,
+        currentSwitchSummary,
+        credentialStatus,
     );
-    await setSharedTodayPlatformSummary(
-        user,
-        platformSummary
-    );
-    await setSharedTodayRankings(
-        user,
-        rankings
-    );
-    await setSharedTodaySwitchSummary(
-        user,
-        switchSummary
-    );
-   
+
+    refreshBadgeData(user);
 }
 
 export function incrementTodayScanCount(user) {
@@ -622,11 +757,15 @@ export function incrementTodayScanCount(user) {
     );
 }
 
-export function incrementTodayPlatformSummary(user) {
+export function incrementTodayPlatformSummary(user, code = "") {
     activePlatformSummaryStorageKey =
         getTodayPlatformSummaryKey(user);
 
-    const platform = getPlatformFromHostname();
+    const platform = getPlatformFromHostname(
+        undefined,
+        currentDepartment,
+        code
+    );
     const summary = getVisiblePlatformSummary();
     const currentRow = summary.find(
         row => row.platform === platform
@@ -648,27 +787,33 @@ export function incrementTodayPlatformSummary(user) {
         summary
     );
 
-    incrementRankingGroup(
-        isHalooPlatform(platform) ?
-            "haloo" :
-            "other"
-    );
+    if (isDtfDepartment(currentDepartment)) {
+        incrementRankingGroup(
+            isHalooPlatform(platform) ?
+                "haloo" :
+                "other"
+        );
+    } else {
+        incrementRankingGroup("total");
+    }
     renderVisibleRankings(currentRankings);
     setSharedTodayRankings(
         user,
         currentRankings
     );
 
-    activeSwitchSummaryStorageKey =
-        getTodaySwitchSummaryKey(user);
-    incrementCurrentHour(platform);
-    currentSwitchSummary =
-        buildSwitchSummary(currentHourlyRows);
-    renderVisibleSwitchSummary(
-        currentSwitchSummary
-    );
-    setSharedTodaySwitchSummary(
-        user,
-        currentSwitchSummary
-    );
+    if (isDtfDepartment(currentDepartment)) {
+        activeSwitchSummaryStorageKey =
+            getTodaySwitchSummaryKey(user);
+        incrementCurrentHour(platform);
+        currentSwitchSummary =
+            buildSwitchSummary(currentHourlyRows);
+        renderVisibleSwitchSummary(
+            currentSwitchSummary
+        );
+        setSharedTodaySwitchSummary(
+            user,
+            currentSwitchSummary
+        );
+    }
 }

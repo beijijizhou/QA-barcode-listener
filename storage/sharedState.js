@@ -1,10 +1,28 @@
+import { getPageProductionDepartment }
+from "../core/department.js";
+
 const CURRENT_USER_KEY = "qa_current_user";
 const HOTSTAMP_USER_KEY = "qa_hotstamp_user";
 const BADGE_MINIMIZED_KEY = "qa_badge_minimized";
+const BADGE_POSITION_KEY = "qa_badge_position";
 const TODAY_COUNT_PREFIX = "qa_today_scan_count";
 const TODAY_PLATFORM_SUMMARY_PREFIX = "qa_today_platform_summary";
 const TODAY_RANKINGS_PREFIX = "qa_today_rankings";
 const TODAY_SWITCH_SUMMARY_PREFIX = "qa_today_switch_summary";
+
+function getTodayKeyParts(prefix, user) {
+    return [
+        prefix,
+        getPageProductionDepartment(user),
+        user.name,
+        new Intl.DateTimeFormat(
+            "en-CA",
+            {
+                timeZone: "America/New_York"
+            }
+        ).format(new Date())
+    ];
+}
 
 function getStorage() {
     return globalThis.chrome?.storage?.local;
@@ -177,56 +195,72 @@ export function isBadgeMinimizedKey(key) {
     return key === BADGE_MINIMIZED_KEY;
 }
 
+export async function setSharedBadgePosition(position) {
+    const value = position || null;
+
+    if (value) {
+        localStorage.setItem(
+            BADGE_POSITION_KEY,
+            JSON.stringify(value)
+        );
+    } else {
+        localStorage.removeItem(BADGE_POSITION_KEY);
+    }
+
+    await writeSharedValue(
+        BADGE_POSITION_KEY,
+        value
+    );
+}
+
+export function getBadgePositionFromPage() {
+    const value =
+        localStorage.getItem(BADGE_POSITION_KEY);
+
+    if (!value) return null;
+
+    try {
+        return JSON.parse(value);
+    } catch (_error) {
+        return null;
+    }
+}
+
+export async function getSharedBadgePosition() {
+    return await readSharedValue(BADGE_POSITION_KEY) ||
+        getBadgePositionFromPage();
+}
+
+export function isBadgePositionKey(key) {
+    return key === BADGE_POSITION_KEY;
+}
+
 export function getTodayCountKey(user) {
-    return [
+    return getTodayKeyParts(
         TODAY_COUNT_PREFIX,
-        user.name,
-        new Intl.DateTimeFormat(
-            "en-CA",
-            {
-                timeZone: "America/New_York"
-            }
-        ).format(new Date())
-    ].join(":");
+        user
+    ).join(":");
 }
 
 export function getTodayPlatformSummaryKey(user) {
-    return [
+    return getTodayKeyParts(
         TODAY_PLATFORM_SUMMARY_PREFIX,
-        user.name,
-        new Intl.DateTimeFormat(
-            "en-CA",
-            {
-                timeZone: "America/New_York"
-            }
-        ).format(new Date())
-    ].join(":");
+        user
+    ).join(":");
 }
 
 export function getTodayRankingsKey(user) {
-    return [
+    return getTodayKeyParts(
         TODAY_RANKINGS_PREFIX,
-        user.name,
-        new Intl.DateTimeFormat(
-            "en-CA",
-            {
-                timeZone: "America/New_York"
-            }
-        ).format(new Date())
-    ].join(":");
+        user
+    ).join(":");
 }
 
 export function getTodaySwitchSummaryKey(user) {
-    return [
+    return getTodayKeyParts(
         TODAY_SWITCH_SUMMARY_PREFIX,
-        user.name,
-        new Intl.DateTimeFormat(
-            "en-CA",
-            {
-                timeZone: "America/New_York"
-            }
-        ).format(new Date())
-    ].join(":");
+        user
+    ).join(":");
 }
 
 export async function setSharedTodayCount(
