@@ -21,9 +21,14 @@ export async function processBarcode(code) {
         if (!user) return;
 
         showBanner(barcode);
-        const input =
-            document.querySelector('input[type="text"]') ||
-            document.querySelector('input');
+        const input = document.querySelector([
+            'input:not([type])',
+            'input[type="text"]',
+            'input[type="search"]',
+            'input[type="tel"]',
+            'input[type="url"]',
+            'input[type="email"]'
+        ].join(','));
 
         if (input) {
             input.value = barcode;
@@ -36,5 +41,8 @@ export async function processBarcode(code) {
     } catch (err) {
 
         console.error('Save failed:', err);
+        alert(
+            `质检数据保存失败：${err?.message || String(err)}`
+        );
     }
 }
